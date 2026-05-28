@@ -41,7 +41,7 @@ export const Players: React.FC = () => {
     e.preventDefault();
     if (!newPlayerName.trim()) return;
     if (newPlayerName.trim().length < 2) {
-      setErrorMsg('Name must be at least 2 characters');
+      setErrorMsg('Nama harus minimal 2 karakter');
       return;
     }
     setErrorMsg(null);
@@ -49,7 +49,7 @@ export const Players: React.FC = () => {
       await addPlayerMutation.mutateAsync(newPlayerName.trim());
       setNewPlayerName('');
     } catch (err: any) {
-      setErrorMsg(err.message || 'Error adding player');
+      setErrorMsg(err.message || 'Gagal menambahkan pemain');
     }
   };
 
@@ -69,16 +69,16 @@ export const Players: React.FC = () => {
       await updatePlayerMutation.mutateAsync({ id, name: editingName.trim() });
       setEditingPlayerId(null);
     } catch (err: any) {
-      alert(err.message || 'Error updating player');
+      alert(err.message || 'Gagal mengedit nama pemain');
     }
   };
 
   const handleDeletePlayer = async (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete player "${name}"?`)) {
+    if (window.confirm(`Apakah Anda yakin ingin menghapus pemain "${name}"?`)) {
       try {
         await deletePlayerMutation.mutateAsync(id);
       } catch (err: any) {
-        alert(err.message || 'Error deleting player');
+        alert(err.message || 'Gagal menghapus pemain');
       }
     }
   };
@@ -94,14 +94,14 @@ export const Players: React.FC = () => {
       {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold font-sans tracking-tight gradient-text">Players Directory</h2>
+          <h2 className="text-3xl font-bold font-sans tracking-tight gradient-text">Direktori Pemain</h2>
           <p className="text-sm text-slate-400 mt-1">
-            Register players, view their overall performance, and manage the roster.
+            Daftarkan pemain, lihat performa keseluruhan mereka, dan kelola daftar pemain.
           </p>
         </div>
         <div className="glass-card px-4 py-2 rounded-xl flex items-center gap-2.5 w-fit">
           <Star className="w-5 h-5 text-brand-secondary fill-brand-secondary/20" />
-          <span className="text-sm font-semibold">Total Registered: {players.length}</span>
+          <span className="text-sm font-semibold">Total Terdaftar: {players.length}</span>
         </div>
       </div>
 
@@ -111,13 +111,13 @@ export const Players: React.FC = () => {
         <div className="lg:col-span-1 glass-panel p-6 rounded-2xl border border-dark-800 space-y-6">
           <div className="flex items-center gap-2.5 border-b border-dark-800 pb-4">
             <UserPlus className="w-5 h-5 text-brand-primary" />
-            <h3 className="font-bold text-lg">Add New Player</h3>
+            <h3 className="font-bold text-lg">Tambah Pemain Baru</h3>
           </div>
 
           <form onSubmit={handleAddPlayer} className="space-y-4">
             <div className="space-y-2">
               <label htmlFor="playerName" className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Full Name
+                Nama Lengkap
               </label>
               <input
                 id="playerName"
@@ -142,7 +142,7 @@ export const Players: React.FC = () => {
               disabled={addPlayerMutation.isPending || !newPlayerName.trim()}
               className="w-full py-2.5 rounded-xl gradient-btn flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {addPlayerMutation.isPending ? 'Registering...' : 'Register Player'}
+              {addPlayerMutation.isPending ? 'Mendaftarkan...' : 'Daftarkan Pemain'}
             </button>
           </form>
         </div>
@@ -152,18 +152,18 @@ export const Players: React.FC = () => {
           {isLoading ? (
             <div className="text-center py-12 glass-panel rounded-2xl">
               <div className="w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-slate-400">Loading players list...</p>
+              <p className="text-slate-400">Memuat daftar pemain...</p>
             </div>
           ) : isError ? (
             <div className="p-6 bg-rose-500/10 border border-rose-500/25 rounded-2xl text-center text-rose-300">
-              Error fetching players. Please check your database connection.
+              Gagal memuat data pemain. Silakan periksa koneksi database Anda.
             </div>
           ) : players.length === 0 ? (
             <div className="text-center py-16 glass-panel rounded-2xl border border-dark-800 space-y-3">
               <span className="text-4xl">🏸</span>
-              <h3 className="font-bold text-lg text-slate-300">No players registered yet</h3>
+              <h3 className="font-bold text-lg text-slate-300">Belum ada pemain terdaftar</h3>
               <p className="text-sm text-slate-500 max-w-sm mx-auto">
-                Start by registering players on the left panel so you can pair them and create tournaments.
+                Mulai dengan mendaftarkan pemain di panel kiri agar Anda dapat memasangkan mereka dan membuat turnamen.
               </p>
             </div>
           ) : (
@@ -222,7 +222,7 @@ export const Players: React.FC = () => {
                               {player.name}
                             </h4>
                             <p className="text-[10px] text-slate-500 mt-0.5">
-                              Joined {new Date(player.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
+                              Bergabung sejak {new Date(player.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
                             </p>
                           </div>
                         )}
@@ -232,19 +232,19 @@ export const Players: React.FC = () => {
                     {/* Stats summary */}
                     <div className="grid grid-cols-4 gap-2 py-2 px-3 bg-dark-950/50 border border-dark-800/80 rounded-xl text-center">
                       <div>
-                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">MP</div>
+                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Main</div>
                         <div className="text-sm font-bold text-slate-200">{stats ? stats.matchesPlayed : 0}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Wins</div>
+                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Menang</div>
                         <div className="text-sm font-bold text-emerald-400">{stats ? stats.wins : 0}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Loss</div>
+                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Kalah</div>
                         <div className="text-sm font-bold text-rose-400">{stats ? stats.losses : 0}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Diff</div>
+                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Selisih</div>
                         <div className={`text-sm font-bold ${stats && stats.pointDiff >= 0 ? 'text-indigo-400' : 'text-rose-400'}`}>
                           {stats ? (stats.pointDiff > 0 ? `+${stats.pointDiff}` : stats.pointDiff) : 0}
                         </div>
@@ -255,7 +255,7 @@ export const Players: React.FC = () => {
                     <div className="flex items-center justify-between border-t border-dark-800/50 pt-3">
                       {/* Win Rate Badge */}
                       <div className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border tracking-wide uppercase ${winRateColor}`}>
-                        {stats && stats.matchesPlayed > 0 ? `${winRatePercent}% WR` : 'No games'}
+                        {stats && stats.matchesPlayed > 0 ? `${winRatePercent}% WR` : 'Belum main'}
                       </div>
 
                       {/* Actions */}
@@ -264,14 +264,14 @@ export const Players: React.FC = () => {
                           <button
                             onClick={() => handleStartEdit(player.id, player.name)}
                             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-dark-800/60 border border-transparent hover:border-dark-800 transition-all"
-                            title="Edit Name"
+                            title="Edit Nama"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleDeletePlayer(player.id, player.name)}
                             className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all"
-                            title="Delete Player"
+                            title="Hapus Pemain"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

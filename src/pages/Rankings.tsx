@@ -43,9 +43,9 @@ export const Rankings: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold font-sans tracking-tight gradient-text">Rankings & Leaderboard</h2>
+          <h2 className="text-3xl font-bold font-sans tracking-tight gradient-text">Peringkat & Papan Skor</h2>
           <p className="text-sm text-slate-400 mt-1">
-            Standings computed in real-time from all completed tournament matches.
+            Klasemen dihitung secara real-time dari semua pertandingan turnamen yang selesai.
           </p>
         </div>
 
@@ -55,7 +55,7 @@ export const Rankings: React.FC = () => {
           className="glass-btn px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 hover:border-brand-primary disabled:opacity-50"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isRefetching ? 'animate-spin' : ''}`} />
-          <span>{isRefetching ? 'Recalculating...' : 'Refresh Standings'}</span>
+          <span>{isRefetching ? 'Menghitung Ulang...' : 'Perbarui Klasemen'}</span>
         </button>
       </div>
 
@@ -73,7 +73,7 @@ export const Rankings: React.FC = () => {
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            MD Pairs
+            Ganda Putra
           </button>
           <button
             onClick={() => {
@@ -86,7 +86,7 @@ export const Rankings: React.FC = () => {
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Individual
+            Individu
           </button>
         </div>
 
@@ -94,7 +94,7 @@ export const Rankings: React.FC = () => {
           <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder={activeTab === 'pairs' ? 'Search pair or player...' : 'Search player...'}
+            placeholder={activeTab === 'pairs' ? 'Cari pasangan atau pemain...' : 'Cari pemain...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full glass-input pl-10 py-2 text-xs"
@@ -106,26 +106,26 @@ export const Rankings: React.FC = () => {
       {isLoading ? (
         <div className="text-center py-20 glass-panel rounded-2xl">
           <div className="w-10 h-10 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-400 font-medium">Computing leaderboard standings...</p>
+          <p className="text-slate-400 font-medium">Menghitung klasemen papan skor...</p>
         </div>
       ) : activeTab === 'pairs' && filteredPairs.length === 0 ? (
         <div className="text-center py-16 glass-panel rounded-2xl border border-dark-800 space-y-3">
           <BarChart3 className="w-12 h-12 text-slate-600 mx-auto" />
-          <h3 className="font-bold text-lg text-slate-300">No pair stats available</h3>
+          <h3 className="font-bold text-lg text-slate-300">Statistik pasangan belum tersedia</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
             {searchQuery 
-              ? 'No pairs match your search query.' 
-              : 'Double-format matches must be completed in active tournaments to begin recording pair rankings.'}
+              ? 'Tidak ada pasangan yang cocok dengan pencarian Anda.' 
+              : 'Pertandingan dengan format ganda harus diselesaikan dalam turnamen aktif untuk mulai mencatat peringkat pasangan.'}
           </p>
         </div>
       ) : activeTab === 'individuals' && filteredIndividuals.length === 0 ? (
         <div className="text-center py-16 glass-panel rounded-2xl border border-dark-800 space-y-3">
           <BarChart3 className="w-12 h-12 text-slate-600 mx-auto" />
-          <h3 className="font-bold text-lg text-slate-300">No individual stats available</h3>
+          <h3 className="font-bold text-lg text-slate-300">Statistik individu belum tersedia</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
             {searchQuery 
-              ? 'No players match your search query.' 
-              : 'Play matches inside tournaments to generate player statistics and individual rankings.'}
+              ? 'Tidak ada pemain yang cocok dengan pencarian Anda.' 
+              : 'Mainkan pertandingan dalam turnamen untuk menghasilkan statistik pemain dan peringkat individu.'}
           </p>
         </div>
       ) : (
@@ -134,14 +134,14 @@ export const Rankings: React.FC = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-dark-900/80 border-b border-dark-800/80 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                  <th className="py-4 px-6 text-center w-16">Rank</th>
-                  <th className="py-4 px-4">{activeTab === 'pairs' ? 'MD Pair' : 'Player Name'}</th>
-                  <th className="py-4 px-4 text-center w-20">MP</th>
-                  <th className="py-4 px-4 text-center w-20">W</th>
-                  <th className="py-4 px-4 text-center w-20">L</th>
-                  <th className="py-4 px-4 text-center w-24">Point Diff</th>
-                  <th className="py-4 px-4 w-40 text-center">Form Guide</th>
-                  <th className="py-4 px-6 text-right w-32">Win Rate</th>
+                  <th className="py-4 px-6 text-center w-16">Peringkat</th>
+                  <th className="py-4 px-4">{activeTab === 'pairs' ? 'Pasangan Ganda' : 'Nama Pemain'}</th>
+                  <th className="py-4 px-4 text-center w-20">Main</th>
+                  <th className="py-4 px-4 text-center w-20">Menang</th>
+                  <th className="py-4 px-4 text-center w-20">Kalah</th>
+                  <th className="py-4 px-4 text-center w-24">Selisih Poin</th>
+                  <th className="py-4 px-4 w-40 text-center">Riwayat</th>
+                  <th className="py-4 px-6 text-right w-32">Rasio Menang</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-dark-800/50">
@@ -180,7 +180,7 @@ export const Rankings: React.FC = () => {
                                       ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                                       : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                                   }`}
-                                  title={outcome === 'W' ? 'Won Match' : 'Lost Match'}
+                                  title={outcome === 'W' ? 'Menang' : 'Kalah'}
                                 >
                                   {outcome}
                                 </span>
@@ -226,7 +226,7 @@ export const Rankings: React.FC = () => {
                                       ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                                       : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                                   }`}
-                                  title={outcome === 'W' ? 'Won Match' : 'Lost Match'}
+                                  title={outcome === 'W' ? 'Menang' : 'Kalah'}
                                 >
                                   {outcome}
                                 </span>
@@ -252,10 +252,9 @@ export const Rankings: React.FC = () => {
       <div className="p-5 bg-dark-900/30 border border-dark-800/80 rounded-2xl flex items-start gap-4">
         <HelpCircle className="w-6 h-6 text-brand-secondary flex-shrink-0 mt-0.5" />
         <div className="space-y-1">
-          <h4 className="font-bold text-sm text-slate-200">Rankings Criteria & Tie Breakers</h4>
+          <h4 className="font-bold text-sm text-slate-200">Kriteria Peringkat & Tie Breaker</h4>
           <p className="text-xs text-slate-400 leading-relaxed">
-            The standings leaderboard ranks pairs and players based on a primary sort of <strong>Win Rate</strong> (Wins / Matches Played). 
-            If win rates are tied, teams are sorted by <strong>Total Wins</strong>. If still tied, the final ranking is decided by <strong>Point Difference</strong> (Total Points Scored - Total Points Allowed) which indicates game dominance.
+            Papan peringkat klasemen mengurutkan pasangan dan pemain berdasarkan <strong>Rasio Menang</strong> (Menang / Total Main) sebagai acuan utama. Jika rasio menang sama, tim akan diurutkan berdasarkan <strong>Total Menang</strong>. Jika masih sama, peringkat akhir ditentukan oleh <strong>Selisih Poin</strong> (Total Poin yang Didapat - Total Poin Kemasukan) yang menunjukkan dominasi permainan.
           </p>
         </div>
       </div>

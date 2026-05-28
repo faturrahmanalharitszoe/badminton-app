@@ -31,7 +31,7 @@ export const Dashboard: React.FC = () => {
 
   const activeTournaments = tournaments.filter((t) => t.status === 'active');
   const completedMatches = allMatches.filter((m) => m.winner !== null);
-  
+
   // Sort and take last 4 completed matches for recent results feed
   const recentResults = [...completedMatches]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -61,13 +61,13 @@ export const Dashboard: React.FC = () => {
         <div className="space-y-2 z-10">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-brand-secondary animate-pulse" />
-            <span className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Dashboard Overview</span>
+            <span className="text-xs font-bold text-brand-secondary uppercase tracking-widest">Ringkasan Dashboard</span>
           </div>
           <h2 className="text-3xl font-extrabold font-sans text-white tracking-tight leading-none">
-            Welcome to Mabar<span className="text-brand-secondary">Smash</span>!
+            Welcome to Amba<span className="text-brand-secondary">Lanton</span>!
           </h2>
           <p className="text-sm text-slate-400 max-w-xl">
-            The ultimate badminton companion. Organise court sessions, create fair balanced pairings, generate brackets instantly, and track pair leaderboards automatically!
+            Teman setia mabar badminton Anda. Atur sesi lapangan, buat pasangan tim yang seimbang secara adil, buat bagan turnamen secara instan, dan catat klasemen peringkat ganda secara otomatis!
           </p>
         </div>
 
@@ -77,17 +77,17 @@ export const Dashboard: React.FC = () => {
             className="px-4 py-2.5 rounded-xl gradient-btn flex items-center gap-1.5 text-sm"
           >
             <Plus className="w-4 h-4" />
-            <span>New Tournament</span>
+            <span>Turnamen Baru</span>
           </Link>
           <Link
             to="/players"
             className="px-4 py-2.5 rounded-xl glass-btn flex items-center gap-1.5 text-sm"
           >
             <Users className="w-4 h-4" />
-            <span>Manage Players</span>
+            <span>Kelola Pemain</span>
           </Link>
         </div>
-        
+
         {/* Glow decorative */}
         <div className="absolute right-[-80px] top-[-50px] w-64 h-64 bg-brand-primary/15 rounded-full blur-[80px] pointer-events-none" />
       </div>
@@ -100,7 +100,7 @@ export const Dashboard: React.FC = () => {
             <Users className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Players</p>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Pemain</p>
             <h3 className="text-xl font-bold text-white mt-0.5">{players.length}</h3>
           </div>
         </div>
@@ -111,7 +111,7 @@ export const Dashboard: React.FC = () => {
             <Trophy className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Tournaments</p>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Turnamen</p>
             <h3 className="text-xl font-bold text-white mt-0.5">{tournaments.length}</h3>
           </div>
         </div>
@@ -122,7 +122,7 @@ export const Dashboard: React.FC = () => {
             <Activity className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Active Games</p>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Game Aktif</p>
             <h3 className="text-xl font-bold text-white mt-0.5">{activeTournaments.length}</h3>
           </div>
         </div>
@@ -133,7 +133,7 @@ export const Dashboard: React.FC = () => {
             <Clock className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Games Played</p>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Game Selesai</p>
             <h3 className="text-xl font-bold text-white mt-0.5">{completedMatches.length}</h3>
           </div>
         </div>
@@ -141,29 +141,29 @@ export const Dashboard: React.FC = () => {
 
       {/* Main Layout Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
+
         {/* Left Side: Active Tournaments & Recent Results */}
         <div className="lg:col-span-2 space-y-8">
-          
+
           {/* Active Tournaments Column */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold text-white tracking-wide flex items-center gap-2">
                 <Activity className="w-5 h-5 text-brand-primary" />
-                <span>Ongoing Tournaments</span>
+                <span>Turnamen Sedang Berjalan</span>
               </h3>
               {activeTournaments.length > 0 && (
                 <span className="text-[10px] bg-brand-primary/10 text-brand-primary px-2 py-0.5 rounded-full font-bold">
-                  {activeTournaments.length} ACTIVE
+                  {activeTournaments.length} AKTIF
                 </span>
               )}
             </div>
 
             {activeTournaments.length === 0 ? (
               <div className="text-center py-10 bg-dark-900/20 border border-dark-800/80 rounded-2xl text-slate-500 text-sm space-y-2">
-                <p>No active tournaments running right now.</p>
+                <p>Tidak ada turnamen aktif saat ini.</p>
                 <Link to="/tournaments" className="text-brand-primary hover:underline font-semibold text-xs inline-flex items-center gap-1">
-                  <span>Create one now</span>
+                  <span>Buat turnamen sekarang</span>
                   <ChevronRight className="w-3 h-3" />
                 </Link>
               </div>
@@ -176,13 +176,13 @@ export const Dashboard: React.FC = () => {
                   >
                     <div>
                       <h4 className="font-bold text-sm text-white truncate">{t.name}</h4>
-                      <p className="text-[10px] text-slate-500 mt-1 capitalize">{t.format === 'double' ? 'Doubles (MD)' : 'Singles'} format</p>
+                      <p className="text-[10px] text-slate-500 mt-1 capitalize">Format {t.format === 'double' ? 'Ganda (MD)' : 'Tunggal (1v1)'}</p>
                     </div>
                     <Link
                       to={`/tournaments/${t.id}`}
                       className="text-xs text-brand-secondary font-bold hover:text-white flex items-center gap-1 hover:gap-1.5 transition-all w-fit"
                     >
-                      <span>Update scores & brackets</span>
+                      <span>Update skor & bagan</span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </Link>
                   </div>
@@ -195,12 +195,12 @@ export const Dashboard: React.FC = () => {
           <div className="space-y-4">
             <h3 className="text-lg font-bold text-white tracking-wide flex items-center gap-2">
               <Clock className="w-5 h-5 text-slate-400" />
-              <span>Recent Match Results</span>
+              <span>Hasil Pertandingan Terakhir</span>
             </h3>
 
             {recentResults.length === 0 ? (
               <div className="text-center py-10 bg-dark-900/20 border border-dark-800/80 rounded-2xl text-slate-500 text-xs">
-                No match results recorded yet. Complete bracket nodes in active tournaments to see history here.
+                Belum ada hasil pertandingan yang tercatat. Selesaikan pertandingan di bagan turnamen untuk melihat riwayat di sini.
               </div>
             ) : (
               <div className="space-y-3">
@@ -243,31 +243,30 @@ export const Dashboard: React.FC = () => {
         {/* Right Side: Leaderboard Previews */}
         <div className="lg:col-span-1 space-y-6">
           <div className="glass-panel p-5 rounded-2xl border border-dark-800 space-y-6">
-            
+
             {/* MD Pairs Preview */}
             <div className="space-y-4">
               <div className="flex items-center justify-between border-b border-dark-800 pb-3">
                 <h4 className="font-bold text-sm text-slate-200 tracking-wide flex items-center gap-2">
                   <Trophy className="w-4.5 h-4.5 text-amber-500" />
-                  <span>Top MD Pairs</span>
+                  <span>Pasangan Terbaik (MD)</span>
                 </h4>
                 <Link to="/rankings" className="text-[10px] text-brand-primary font-bold hover:underline">
-                  View All
+                  Lihat Semua
                 </Link>
               </div>
 
               {topPairs.length === 0 ? (
-                <p className="text-xs text-slate-500 py-2">No rankings recorded.</p>
+                <p className="text-xs text-slate-500 py-2">Belum ada peringkat tercatat.</p>
               ) : (
                 <div className="space-y-3.5">
                   {topPairs.map((pair, index) => (
                     <div key={pair.pairKey} className="flex items-center justify-between gap-4 text-xs">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className={`w-5 h-5 flex items-center justify-center rounded-full font-black ${
-                          index === 0 ? 'bg-amber-400/10 text-amber-400 border border-amber-400/20' :
-                          index === 1 ? 'bg-slate-300/10 text-slate-300 border border-slate-300/20' :
-                          'bg-amber-700/10 text-amber-700 border border-amber-700/20'
-                        }`}>
+                        <span className={`w-5 h-5 flex items-center justify-center rounded-full font-black ${index === 0 ? 'bg-amber-400/10 text-amber-400 border border-amber-400/20' :
+                            index === 1 ? 'bg-slate-300/10 text-slate-300 border border-slate-300/20' :
+                              'bg-amber-700/10 text-amber-700 border border-amber-700/20'
+                          }`}>
                           {index + 1}
                         </span>
                         <span className="font-semibold text-slate-300 truncate">
@@ -286,25 +285,24 @@ export const Dashboard: React.FC = () => {
               <div className="flex items-center justify-between border-b border-dark-800 pb-3">
                 <h4 className="font-bold text-sm text-slate-200 tracking-wide flex items-center gap-2">
                   <Award className="w-4.5 h-4.5 text-brand-secondary" />
-                  <span>Top Individual Players</span>
+                  <span>Pemain Terbaik (Individu)</span>
                 </h4>
                 <Link to="/rankings" className="text-[10px] text-brand-primary font-bold hover:underline">
-                  View All
+                  Lihat Semua
                 </Link>
               </div>
 
               {topIndividuals.length === 0 ? (
-                <p className="text-xs text-slate-500 py-2">No rankings recorded.</p>
+                <p className="text-xs text-slate-500 py-2">Belum ada peringkat tercatat.</p>
               ) : (
                 <div className="space-y-3.5">
                   {topIndividuals.map((ind, index) => (
                     <div key={ind.playerId} className="flex items-center justify-between gap-4 text-xs">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className={`w-5 h-5 flex items-center justify-center rounded-full font-black ${
-                          index === 0 ? 'bg-amber-400/10 text-amber-400 border border-amber-400/20' :
-                          index === 1 ? 'bg-slate-300/10 text-slate-300 border border-slate-300/20' :
-                          'bg-amber-700/10 text-amber-700 border border-amber-700/20'
-                        }`}>
+                        <span className={`w-5 h-5 flex items-center justify-center rounded-full font-black ${index === 0 ? 'bg-amber-400/10 text-amber-400 border border-amber-400/20' :
+                            index === 1 ? 'bg-slate-300/10 text-slate-300 border border-slate-300/20' :
+                              'bg-amber-700/10 text-amber-700 border border-amber-700/20'
+                          }`}>
                           {index + 1}
                         </span>
                         <span className="font-semibold text-slate-300 truncate">{ind.name}</span>

@@ -23,9 +23,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const menuItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { name: 'Players', path: '/players', icon: Users },
-    { name: 'Tournaments', path: '/tournaments', icon: Trophy },
-    { name: 'Rankings', path: '/rankings', icon: TrendingUp },
+    { name: 'Pemain', path: '/players', icon: Users },
+    { name: 'Turnamen', path: '/tournaments', icon: Trophy },
+    { name: 'Peringkat', path: '/rankings', icon: TrendingUp },
   ];
 
   const isActive = (path: string) => {
@@ -47,8 +47,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             <span className="text-xl font-bold text-white tracking-wider">🏸</span>
           </div>
           <div>
-            <h1 className="font-bold text-lg tracking-tight font-sans">MABAR<span className="text-brand-secondary font-semibold">SMASH</span></h1>
-            <p className="text-[10px] text-slate-400 font-medium tracking-widest uppercase">Badminton App</p>
+            <h1 className="font-bold text-lg tracking-tight font-sans">AMBA<span className="text-brand-secondary font-semibold">LANTON</span></h1>
+            <p className="text-[10px] text-slate-400 font-medium tracking-widest uppercase">Aplikasi Badminton</p>
           </div>
         </div>
 
@@ -61,19 +61,17 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-200 group relative ${
-                  Active
-                    ? 'glass-card-active text-white font-semibold'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-dark-900/40'
-                }`}
+                className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-200 group relative ${Active
+                  ? 'glass-card-active text-white font-semibold'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-dark-900/40'
+                  }`}
               >
                 {Active && (
                   <span className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-brand-primary rounded-r-full" />
                 )}
                 <Icon
-                  className={`w-5 h-5 transition-transform duration-200 group-hover:scale-110 ${
-                    Active ? 'text-brand-secondary' : 'text-slate-500 group-hover:text-slate-400'
-                  }`}
+                  className={`w-5 h-5 transition-transform duration-200 group-hover:scale-110 ${Active ? 'text-brand-secondary' : 'text-slate-500 group-hover:text-slate-400'
+                    }`}
                 />
                 <span className="text-sm font-sans tracking-wide">{item.name}</span>
               </Link>
@@ -83,16 +81,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         {/* Connection status footer */}
         <div className="p-4 border-t border-dark-800/80">
-          <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${
-            hasSupabaseConfig 
-              ? 'bg-emerald-500/5 border border-emerald-500/20' 
-              : 'bg-amber-500/5 border border-amber-500/20'
-          }`}>
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${hasSupabaseConfig
+            ? 'bg-emerald-500/5 border border-emerald-500/20'
+            : 'bg-amber-500/5 border border-amber-500/20'
+            }`}>
             <Database className={`w-4 h-4 ${hasSupabaseConfig ? 'text-emerald-400 animate-pulse' : 'text-amber-400'}`} />
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] text-slate-400 font-semibold tracking-wide uppercase">Connection Status</p>
+              <p className="text-[10px] text-slate-400 font-semibold tracking-wide uppercase">Status Koneksi</p>
               <p className="text-xs font-bold text-slate-200 truncate">
-                {hasSupabaseConfig ? 'Supabase Connected' : 'Local Demo Mode'}
+                {hasSupabaseConfig ? 'Terhubung Supabase' : 'Mode Demo Lokal'}
               </p>
             </div>
           </div>
@@ -105,7 +102,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-brand-primary to-brand-secondary flex items-center justify-center">
             <span className="text-base">🏸</span>
           </div>
-          <h1 className="font-bold text-base tracking-tight">MABAR<span className="text-brand-secondary">SMASH</span></h1>
+          <h1 className="font-bold text-base tracking-tight">AMBA<span className="text-brand-secondary">LANTON</span></h1>
         </div>
 
         <button
@@ -128,11 +125,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   key={item.path}
                   to={item.path}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-4 px-5 py-3.5 rounded-xl border ${
-                    Active
-                      ? 'bg-brand-primary/10 border-brand-primary/40 text-white font-semibold'
-                      : 'border-dark-800 bg-dark-900/40 text-slate-400'
-                  }`}
+                  className={`flex items-center gap-4 px-5 py-3.5 rounded-xl border ${Active
+                    ? 'bg-brand-primary/10 border-brand-primary/40 text-white font-semibold'
+                    : 'border-dark-800 bg-dark-900/40 text-slate-400'
+                    }`}
                 >
                   <Icon className={`w-5 h-5 ${Active ? 'text-brand-secondary' : 'text-slate-500'}`} />
                   <span className="text-base tracking-wide font-sans">{item.name}</span>
@@ -142,16 +138,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </nav>
 
           {/* Mobile status banner */}
-          <div className={`flex items-center gap-3 px-4 py-3.5 rounded-xl ${
-            hasSupabaseConfig 
-              ? 'bg-emerald-500/5 border border-emerald-500/20' 
-              : 'bg-amber-500/5 border border-amber-500/20'
-          }`}>
+          <div className={`flex items-center gap-3 px-4 py-3.5 rounded-xl ${hasSupabaseConfig
+            ? 'bg-emerald-500/5 border border-emerald-500/20'
+            : 'bg-amber-500/5 border border-amber-500/20'
+            }`}>
             <Database className={`w-5 h-5 ${hasSupabaseConfig ? 'text-emerald-400' : 'text-amber-400'}`} />
             <div>
-              <p className="text-[10px] text-slate-400 font-semibold tracking-wide uppercase">Connection Status</p>
+              <p className="text-[10px] text-slate-400 font-semibold tracking-wide uppercase">Status Koneksi</p>
               <p className="text-sm font-bold text-slate-200">
-                {hasSupabaseConfig ? 'Supabase Connected' : 'Local Demo Mode'}
+                {hasSupabaseConfig ? 'Terhubung Supabase' : 'Mode Demo Lokal'}
               </p>
             </div>
           </div>
@@ -165,11 +160,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <div className="bg-gradient-to-r from-amber-500/10 via-amber-600/10 to-amber-500/10 border-b border-amber-500/20 px-6 py-2.5 flex items-center justify-between text-[11px] text-amber-200/90 font-medium tracking-wide">
             <div className="flex items-center gap-2">
               <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-              <span>You are currently in <strong>Demo Mode</strong>. Data is saved locally in this browser. To save in the cloud, configure your <code>.env</code> file.</span>
+              <span>Saat ini Anda berada di <strong>Mode Demo</strong>. Data disimpan secara lokal di browser ini. Untuk menyimpan di cloud, konfigurasikan file <code>.env</code> Anda.</span>
             </div>
-            <div className="flex items-center gap-1.5 opacity-80 hover:opacity-100 cursor-help" title="To connect: Copy .env.example to .env and fill out VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.">
+            <div className="flex items-center gap-1.5 opacity-80 hover:opacity-100 cursor-help" title="Untuk menghubungkan: Salin .env.example menjadi .env lalu isi VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY.">
               <Info className="w-3.5 h-3.5" />
-              <span>Setup Guide</span>
+              <span>Panduan Setup</span>
             </div>
           </div>
         )}

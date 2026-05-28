@@ -188,18 +188,18 @@ export const Tournaments: React.FC = () => {
   };
 
   const handleDeleteTournament = async (id: string, tournamentName: string) => {
-    if (window.confirm(`Are you sure you want to delete tournament "${tournamentName}"? This will permanently delete all associated matches and scores.`)) {
+    if (window.confirm(`Apakah Anda yakin ingin menghapus turnamen "${tournamentName}"? Ini akan menghapus semua pertandingan dan skor terkait secara permanen.`)) {
       try {
         await deleteTournamentMutation.mutateAsync(id);
       } catch (err: any) {
-        alert(err.message || 'Error deleting tournament');
+        alert(err.message || 'Gagal menghapus turnamen');
       }
     }
   };
 
   const getPlayerName = (id: string) => {
     if (id === 'ghost') return '👻 GHOST';
-    return players.find((p) => p.id === id)?.name || 'Unknown Player';
+    return players.find((p) => p.id === id)?.name || 'Pemain Tidak Diketahui';
   };
 
   // Get unassigned players for manual pairings
@@ -213,9 +213,9 @@ export const Tournaments: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold font-sans tracking-tight gradient-text">Tournaments</h2>
+          <h2 className="text-3xl font-bold font-sans tracking-tight gradient-text">Turnamen</h2>
           <p className="text-sm text-slate-400 mt-1">
-            Create, view, and run brackets for Men's Doubles (MD) and Singles games.
+            Buat, lihat, dan jalankan bagan pertandingan untuk Ganda Putra (MD) dan Tunggal.
           </p>
         </div>
 
@@ -225,7 +225,7 @@ export const Tournaments: React.FC = () => {
             className="px-4 py-2.5 rounded-xl gradient-btn flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
-            <span>Create Tournament</span>
+            <span>Buat Turnamen</span>
           </button>
         )}
       </div>
@@ -237,7 +237,7 @@ export const Tournaments: React.FC = () => {
           <div className="flex items-center justify-between border-b border-dark-800 pb-4">
             <div className="flex items-center gap-3">
               <Trophy className="w-6 h-6 text-brand-secondary" />
-              <h3 className="font-bold text-xl">Tournament Setup Wizard</h3>
+              <h3 className="font-bold text-xl">Pengaturan Turnamen</h3>
             </div>
             <button
               onClick={() => {
@@ -246,7 +246,7 @@ export const Tournaments: React.FC = () => {
               }}
               className="text-slate-400 hover:text-white glass-btn px-3 py-1.5 rounded-lg text-xs"
             >
-              Cancel
+              Batal
             </button>
           </div>
 
@@ -258,27 +258,27 @@ export const Tournaments: React.FC = () => {
           </div>
           <div className="flex justify-between text-xs text-slate-500 font-bold uppercase tracking-wider max-w-lg mx-auto px-1">
             <span className={wizardStep === 1 ? 'text-brand-primary' : ''}>1. Info</span>
-            <span className={wizardStep === 2 ? 'text-brand-primary' : ''}>2. Players</span>
-            <span className={wizardStep === 3 ? 'text-brand-primary' : ''}>3. Pairings</span>
+            <span className={wizardStep === 2 ? 'text-brand-primary' : ''}>2. Pemain</span>
+            <span className={wizardStep === 3 ? 'text-brand-primary' : ''}>3. Pasangan</span>
           </div>
 
           {/* STEP 1: Basic Info */}
           {wizardStep === 1 && (
             <div className="max-w-md mx-auto space-y-4 py-4">
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tournament Name</label>
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Nama Turnamen</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Mabar Jumat Badminton Club"
+                  placeholder="misal: Mabar Jumat Badminton Club"
                   className="w-full glass-input"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Date</label>
+                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tanggal</label>
                   <input
                     type="date"
                     value={date}
@@ -293,8 +293,8 @@ export const Tournaments: React.FC = () => {
                     onChange={(e) => setFormat(e.target.value as 'single' | 'double')}
                     className="w-full glass-input bg-dark-900"
                   >
-                    <option value="double">Men's Doubles (MD)</option>
-                    <option value="single">Singles (1v1)</option>
+                    <option value="double">Ganda Putra (MD)</option>
+                    <option value="single">Tunggal (1v1)</option>
                   </select>
                 </div>
               </div>
@@ -304,7 +304,7 @@ export const Tournaments: React.FC = () => {
                   onClick={() => setWizardStep(2)}
                   className="glass-btn px-5 py-2.5 rounded-xl flex items-center gap-1.5 hover:border-brand-primary"
                 >
-                  <span>Select Players</span>
+                  <span>Pilih Pemain</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -318,20 +318,20 @@ export const Tournaments: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <Users className="w-5 h-5 text-brand-secondary" />
                   <span className="font-semibold text-slate-300">
-                    Selected: {selectedPlayerIds.length} players ({format === 'double' ? `${Math.ceil(selectedPlayerIds.length / 2)} teams needed` : `${selectedPlayerIds.length} teams`})
+                    Terpilih: {selectedPlayerIds.length} pemain ({format === 'double' ? `butuh ${Math.ceil(selectedPlayerIds.length / 2)} tim` : `${selectedPlayerIds.length} tim`})
                   </span>
                 </div>
                 <button
                   onClick={handleSelectAllPlayers}
                   className="text-xs font-bold text-brand-primary hover:text-white transition-colors"
                 >
-                  {selectedPlayerIds.length === players.length ? 'Deselect All' : 'Select All'}
+                  {selectedPlayerIds.length === players.length ? 'Batal Pilih Semua' : 'Pilih Semua'}
                 </button>
               </div>
 
               {players.length === 0 ? (
                 <div className="text-center py-10 bg-dark-900/30 rounded-xl border border-dashed border-dark-800 text-slate-500 text-sm">
-                  No players registered. Please add players first in the Players page.
+                  Belum ada pemain terdaftar. Silakan tambah pemain terlebih dahulu di halaman Pemain.
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[300px] overflow-y-auto pr-2">
@@ -364,21 +364,21 @@ export const Tournaments: React.FC = () => {
                 <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-2 text-xs text-amber-300">
                   <HelpCircle className="w-4.5 h-4.5 text-amber-400 mt-0.5 flex-shrink-0" />
                   <span>
-                    You selected an odd number of players ({selectedPlayerIds.length}). In the next step, you can pair the odd player with a <strong>GHOST partner</strong>.
+                    Anda memilih jumlah pemain ganjil ({selectedPlayerIds.length}). Di langkah berikutnya, Anda bisa memasangkan pemain yang tersisa dengan pasangan main ganda (double-up) dari pemain yang sudah ada.
                   </span>
                 </div>
               )}
 
               <div className="flex justify-between pt-4 border-t border-dark-800">
                 <button onClick={() => setWizardStep(1)} className="glass-btn px-4 py-2.5 rounded-xl">
-                  Back
+                  Kembali
                 </button>
                 <button
                   onClick={startPairingsStep}
                   disabled={selectedPlayerIds.length < 2}
                   className="glass-btn px-5 py-2.5 rounded-xl flex items-center gap-1.5 hover:border-brand-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <span>Build Pairings</span>
+                  <span>Buat Pasangan</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -391,8 +391,8 @@ export const Tournaments: React.FC = () => {
               {/* Quick actions for pairing generation */}
               <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-dark-950/50 border border-dark-800 rounded-xl">
                 <div>
-                  <h4 className="font-bold text-sm text-slate-300">How would you like to pair up teams?</h4>
-                  <p className="text-xs text-slate-500 mt-0.5">Generate balanced or random teams automatically, or assign them manually.</p>
+                  <h4 className="font-bold text-sm text-slate-300">Bagaimana Anda ingin memasangkan tim?</h4>
+                  <p className="text-xs text-slate-500 mt-0.5">Buat pasangan tim yang seimbang atau acak secara otomatis, atau atur secara manual.</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -400,14 +400,14 @@ export const Tournaments: React.FC = () => {
                     className="glass-btn px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 hover:border-brand-secondary"
                   >
                     <CheckCircle className="w-3.5 h-3.5 text-brand-secondary" />
-                    <span>Auto (Balanced)</span>
+                    <span>Otomatis (Seimbang)</span>
                   </button>
                   <button
                     onClick={generateRandomPairings}
                     className="glass-btn px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 hover:border-brand-primary"
                   >
                     <Shuffle className="w-3.5 h-3.5 text-brand-primary" />
-                    <span>Auto (Random)</span>
+                    <span>Otomatis (Acak)</span>
                   </button>
                 </div>
               </div>
@@ -417,17 +417,17 @@ export const Tournaments: React.FC = () => {
                 {/* Unassigned / Manual selection buffer */}
                 <div className="glass-card p-5 rounded-xl space-y-4">
                   <div className="border-b border-dark-800 pb-3 flex items-center justify-between">
-                    <h5 className="font-bold text-sm text-slate-300">Unassigned Players ({getUnassignedPlayers().length})</h5>
+                    <h5 className="font-bold text-sm text-slate-300">Pemain Belum Berpasangan ({getUnassignedPlayers().length})</h5>
                     {manualSelection.length > 0 && (
                       <span className="text-[10px] bg-brand-primary/10 text-brand-primary border border-brand-primary/20 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider animate-pulse">
-                        {format === 'double' ? `Selected ${manualSelection.length}/2` : 'Singles selected'}
+                        {format === 'double' ? `Terpilih ${manualSelection.length}/2` : 'Tunggal terpilih'}
                       </span>
                     )}
                   </div>
                   
                   {getUnassignedPlayers().length === 0 ? (
                     <div className="text-center py-8 text-xs text-slate-500">
-                      All players assigned! Click "Start Tournament" to create the bracket.
+                      Semua pemain sudah mendapatkan pasangan! Klik "Mulai Turnamen" untuk membuat bagan.
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
@@ -452,7 +452,7 @@ export const Tournaments: React.FC = () => {
                       {format === 'double' && getUnassignedPlayers().length === 1 && (
                         <div className="w-full space-y-3 pt-3 border-t border-dark-800/40">
                           <p className="text-[10px] text-amber-300 font-bold uppercase tracking-wider">
-                            Choose a Double-Up partner for {getPlayerName(getUnassignedPlayers()[0])}:
+                            Pilih pasangan Main Ganda untuk {getPlayerName(getUnassignedPlayers()[0])}:
                           </p>
                           <div className="flex flex-wrap gap-2">
                             {selectedPlayerIds
@@ -479,12 +479,12 @@ export const Tournaments: React.FC = () => {
                 {/* Formed Teams */}
                 <div className="glass-card p-5 rounded-xl space-y-4">
                   <h5 className="font-bold text-sm text-slate-300 border-b border-dark-800 pb-3">
-                    Formed Teams ({teams.length})
+                    Tim Terbentuk ({teams.length})
                   </h5>
                   
                   {teams.length === 0 ? (
                     <div className="text-center py-12 text-xs text-slate-500 border border-dashed border-dark-800 rounded-xl">
-                      No teams created yet. Use auto-generators above or click players on the left to form teams manually.
+                      Belum ada tim yang dibuat. Gunakan tombol otomatis di atas atau klik nama pemain di sebelah kiri untuk memasangkan secara manual.
                     </div>
                   ) : (
                     <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
@@ -517,7 +517,7 @@ export const Tournaments: React.FC = () => {
               {/* Actions Footer */}
               <div className="flex justify-between pt-4 border-t border-dark-800">
                 <button onClick={() => setWizardStep(2)} className="glass-btn px-4 py-2.5 rounded-xl">
-                  Back
+                  Kembali
                 </button>
                 <button
                   onClick={handleStartTournament}
@@ -525,11 +525,11 @@ export const Tournaments: React.FC = () => {
                   className="px-5 py-2.5 rounded-xl gradient-btn flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {addTournamentMutation.isPending ? (
-                    <span>Initializing Bracket...</span>
+                    <span>Menyiapkan Bagan...</span>
                   ) : (
                     <>
                       <GitBranch className="w-5 h-5" />
-                      <span>Start Tournament</span>
+                      <span>Mulai Turnamen</span>
                     </>
                   )}
                 </button>
@@ -543,21 +543,21 @@ export const Tournaments: React.FC = () => {
       {loadingTournaments ? (
         <div className="text-center py-16 glass-panel rounded-2xl">
           <div className="w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-400">Loading tournaments list...</p>
+          <p className="text-slate-400">Memuat daftar turnamen...</p>
         </div>
       ) : tournaments.length === 0 ? (
         <div className="text-center py-20 glass-panel rounded-2xl border border-dark-800 space-y-4">
           <span className="text-5xl">🏆</span>
-          <h3 className="font-bold text-xl text-slate-300">No tournaments created yet</h3>
+          <h3 className="font-bold text-xl text-slate-300">Belum ada turnamen yang dibuat</h3>
           <p className="text-sm text-slate-500 max-w-md mx-auto">
-            Get the mabar started! Click the "Create Tournament" button at the top to select players, pair them up, and build a bracket.
+            Ayo mulai mabarnya! Klik tombol "Buat Turnamen" di atas untuk memilih pemain, memasangkan mereka, dan membuat bagan pertandingan.
           </p>
           <button
             onClick={() => setShowWizard(true)}
             className="px-5 py-2.5 rounded-xl gradient-btn inline-flex items-center gap-2 text-sm mt-2"
           >
             <Plus className="w-4 h-4" />
-            <span>Create Tournament</span>
+            <span>Buat Turnamen</span>
           </button>
         </div>
       ) : (
@@ -587,7 +587,7 @@ export const Tournaments: React.FC = () => {
                         ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
                         : 'bg-brand-primary/10 border-brand-primary/20 text-brand-primary animate-pulse-subtle'
                     }`}>
-                      {tournament.status}
+                      {tournament.status === 'completed' ? 'Selesai' : 'Berjalan'}
                     </span>
                     <button
                       onClick={(e) => {
@@ -595,7 +595,7 @@ export const Tournaments: React.FC = () => {
                         handleDeleteTournament(tournament.id, tournament.name);
                       }}
                       className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100 duration-200"
-                      title="Delete Tournament"
+                      title="Hapus Turnamen"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -608,11 +608,11 @@ export const Tournaments: React.FC = () => {
                   <div className="space-y-1.5 text-xs text-slate-400">
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-slate-500" />
-                      <span>{new Date(tournament.date).toLocaleDateString(undefined, { dateStyle: 'medium' })}</span>
+                      <span>{new Date(tournament.date).toLocaleDateString('id-ID', { dateStyle: 'medium' })}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Trophy className="w-4 h-4 text-slate-500" />
-                      <span className="capitalize">{tournament.format === 'double' ? "Men's Doubles (MD)" : "Singles (1v1)"}</span>
+                      <span className="capitalize">{tournament.format === 'double' ? "Ganda Putra (MD)" : "Tunggal (1v1)"}</span>
                     </div>
                   </div>
                 </div>
@@ -623,7 +623,7 @@ export const Tournaments: React.FC = () => {
                       🏆
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Tournament Winner</p>
+                      <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Pemenang Turnamen</p>
                       <p className="text-xs font-bold text-slate-200 truncate">{winnerNames}</p>
                     </div>
                   </div>
@@ -633,7 +633,7 @@ export const Tournaments: React.FC = () => {
                   onClick={() => navigate(`/tournaments/${tournament.id}`)}
                   className="w-full py-2.5 rounded-xl glass-btn text-xs flex items-center justify-center gap-2 group-hover:border-brand-primary group-hover:text-white transition-all font-semibold"
                 >
-                  <span>{isCompleted ? 'View Bracket & Results' : 'Play & Update Bracket'}</span>
+                  <span>{isCompleted ? 'Lihat Bagan & Hasil' : 'Main & Perbarui Bagan'}</span>
                   <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </button>
               </div>

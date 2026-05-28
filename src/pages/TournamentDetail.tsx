@@ -57,7 +57,7 @@ export const TournamentDetail: React.FC = () => {
     return (
       <div className="text-center py-20">
         <div className="w-10 h-10 border-4 border-brand-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-slate-400">Loading tournament bracket...</p>
+        <p className="text-slate-400">Memuat bagan turnamen...</p>
       </div>
     );
   }
@@ -66,10 +66,10 @@ export const TournamentDetail: React.FC = () => {
     return (
       <div className="text-center py-16 space-y-4">
         <AlertTriangle className="w-12 h-12 text-rose-500 mx-auto" />
-        <h3 className="font-bold text-xl text-slate-300">Tournament not found</h3>
+        <h3 className="font-bold text-xl text-slate-300">Turnamen tidak ditemukan</h3>
         <Link to="/tournaments" className="inline-flex items-center gap-2 text-brand-primary font-semibold hover:underline">
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Tournaments</span>
+          <span>Kembali ke Turnamen</span>
         </Link>
       </div>
     );
@@ -77,11 +77,11 @@ export const TournamentDetail: React.FC = () => {
 
   const getPlayerName = (pId: string) => {
     if (pId === 'ghost') return '👻 GHOST';
-    return players.find((p) => p.id === pId)?.name || 'Unknown';
+    return players.find((p) => p.id === pId)?.name || 'Tidak Diketahui';
   };
 
   const getTeamNames = (teamIds: string[]) => {
-    if (!teamIds || teamIds.length === 0) return 'Waiting...';
+    if (!teamIds || teamIds.length === 0) return 'Menunggu...';
     return teamIds.map((id) => getPlayerName(id)).join(' & ');
   };
 
@@ -101,12 +101,12 @@ export const TournamentDetail: React.FC = () => {
     const s2 = parseInt(score2);
 
     if (isNaN(s1) || isNaN(s2) || s1 < 0 || s2 < 0) {
-      setModalError('Please enter valid non-negative scores');
+      setModalError('Silakan masukkan skor non-negatif yang valid');
       return;
     }
 
     if (s1 === s2) {
-      setModalError('Badminton matches cannot end in a draw');
+      setModalError('Pertandingan bulu tangkis tidak bisa berakhir seri');
       return;
     }
 
@@ -122,7 +122,7 @@ export const TournamentDetail: React.FC = () => {
       });
       setSelectedMatch(null);
     } catch (err: any) {
-      setModalError(err.message || 'Failed to update score');
+      setModalError(err.message || 'Gagal memperbarui skor');
     }
   };
 
@@ -147,7 +147,7 @@ export const TournamentDetail: React.FC = () => {
       });
       queryClient.invalidateQueries({ queryKey: ['matches', tournamentId] });
     } catch (err: any) {
-      alert(err.message || 'Failed to substitute player');
+      alert(err.message || 'Gagal mengganti pemain');
     }
   };
 
@@ -216,9 +216,9 @@ export const TournamentDetail: React.FC = () => {
             </h2>
             <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5 font-medium">
               <Calendar className="w-3.5 h-3.5 text-slate-500" />
-              <span>{new Date(tournament.date).toLocaleDateString(undefined, { dateStyle: 'long' })}</span>
+              <span>{new Date(tournament.date).toLocaleDateString('id-ID', { dateStyle: 'long' })}</span>
               <span>•</span>
-              <span className="capitalize">{tournament.format === 'double' ? 'MD' : 'Singles'} format</span>
+              <span>Format {tournament.format === 'double' ? 'Ganda Putra (MD)' : 'Tunggal'}</span>
             </p>
           </div>
         </div>
@@ -227,7 +227,7 @@ export const TournamentDetail: React.FC = () => {
           <div className="bg-emerald-500/10 border border-emerald-500/20 px-5 py-3 rounded-2xl flex items-center gap-3 max-w-sm">
             <Award className="w-6 h-6 text-emerald-400 animate-bounce flex-shrink-0" />
             <div className="min-w-0">
-              <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Tournament Champions</span>
+              <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Juara Turnamen</span>
               <h4 className="text-sm font-bold text-slate-100 truncate">{getTeamNames(tournament.winner_team_ids)}</h4>
             </div>
           </div>
@@ -238,7 +238,7 @@ export const TournamentDetail: React.FC = () => {
       <div className="p-3 bg-dark-900/60 border border-dark-800 rounded-xl flex items-start gap-2.5 text-xs text-slate-400">
         <Info className="w-4.5 h-4.5 text-brand-primary mt-0.5 flex-shrink-0" />
         <span>
-          <strong>How to update scores:</strong> Click on any active match node to enter scores. Winners are automatically promoted to the next round. Byes are resolved automatically.
+          <strong>Cara memperbarui skor:</strong> Klik pada kotak pertandingan yang aktif untuk memasukkan skor. Pemenang secara otomatis akan melaju ke babak berikutnya. Bye akan diproses secara otomatis.
         </span>
       </div>
 
@@ -311,9 +311,9 @@ export const TournamentDetail: React.FC = () => {
               >
                 {/* Match Header / Round Badge */}
                 <div className="flex justify-between items-center text-[9px] font-bold text-slate-500 uppercase tracking-widest border-b border-dark-800/40 pb-1.5 mb-1.5">
-                  <span>Match {match.match_index + 1}</span>
+                  <span>Pertandingan {match.match_index + 1}</span>
                   <span className="text-brand-primary">
-                    {match.round === maxRound ? 'Finals' : match.round === maxRound - 1 ? 'Semifinals' : `Round ${match.round}`}
+                    {match.round === maxRound ? 'Final' : match.round === maxRound - 1 ? 'Semifinal' : `Babak ${match.round}`}
                   </span>
                 </div>
 
@@ -327,8 +327,8 @@ export const TournamentDetail: React.FC = () => {
                 }`}>
                   <span className="truncate max-w-[190px]">
                     {isTeam1Bye 
-                      ? 'BYE (Advanced)' 
-                      : (match.team1_ids.length > 0 ? getTeamNames(match.team1_ids) : 'Waiting...')}
+                      ? 'BYE (Lolos)' 
+                      : (match.team1_ids.length > 0 ? getTeamNames(match.team1_ids) : 'Menunggu...')}
                   </span>
                   <span className="font-bold text-sm">
                     {match.score1 !== null ? match.score1 : '-'}
@@ -345,8 +345,8 @@ export const TournamentDetail: React.FC = () => {
                 }`}>
                   <span className="truncate max-w-[190px]">
                     {isTeam2Bye 
-                      ? 'BYE (Advanced)' 
-                      : (match.team2_ids.length > 0 ? getTeamNames(match.team2_ids) : 'Waiting...')}
+                      ? 'BYE (Lolos)' 
+                      : (match.team2_ids.length > 0 ? getTeamNames(match.team2_ids) : 'Menunggu...')}
                   </span>
                   <span className="font-bold text-sm">
                     {match.score2 !== null ? match.score2 : '-'}
@@ -371,8 +371,8 @@ export const TournamentDetail: React.FC = () => {
           <div className="glass-panel max-w-md w-full p-6 rounded-2xl border border-dark-800 space-y-6 animate-scale-in">
             {/* Header */}
             <div className="border-b border-dark-800 pb-3">
-              <h3 className="font-bold text-lg text-white">Enter Match Scores</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Round {selectedMatch.round} • Match {selectedMatch.match_index + 1}</p>
+              <h3 className="font-bold text-lg text-white">Masukkan Skor Pertandingan</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Babak {selectedMatch.round} • Pertandingan {selectedMatch.match_index + 1}</p>
             </div>
 
             {/* Inputs */}
@@ -409,13 +409,13 @@ export const TournamentDetail: React.FC = () => {
             {/* Substitution editor */}
             <div className="space-y-3 pt-3 border-t border-dark-800/80">
               <h4 className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                👥 Adjust Lineups / Substitutions
+                👥 Sesuaikan Formasi / Pergantian Pemain
               </h4>
               
               <div className="space-y-3 text-xs bg-dark-950/20 p-3 rounded-xl border border-dark-800/40">
                 {/* Team 1 Players */}
                 <div className="space-y-1.5">
-                  <span className="font-bold text-[10px] text-brand-primary block uppercase">Team 1 Lineup:</span>
+                  <span className="font-bold text-[10px] text-brand-primary block uppercase">Formasi Tim 1:</span>
                   <div className="grid grid-cols-2 gap-2">
                     {selectedMatch.team1_ids.map((pId: string, idx: number) => (
                       <select
@@ -434,7 +434,7 @@ export const TournamentDetail: React.FC = () => {
 
                 {/* Team 2 Players */}
                 <div className="space-y-1.5">
-                  <span className="font-bold text-[10px] text-brand-secondary block uppercase">Team 2 Lineup:</span>
+                  <span className="font-bold text-[10px] text-brand-secondary block uppercase">Formasi Tim 2:</span>
                   <div className="grid grid-cols-2 gap-2">
                     {selectedMatch.team2_ids.map((pId: string, idx: number) => (
                       <select
@@ -466,13 +466,13 @@ export const TournamentDetail: React.FC = () => {
                 onClick={() => setSelectedMatch(null)}
                 className="glass-btn px-4 py-2.5 rounded-xl text-xs"
               >
-                Cancel
+                Batal
               </button>
               <button
                 onClick={handleSaveScore}
                 className="px-5 py-2.5 rounded-xl gradient-btn text-xs font-bold"
               >
-                Save Score
+                Simpan Skor
               </button>
             </div>
           </div>
