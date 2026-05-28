@@ -1,0 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+@layer base {
+  body {
+    @apply bg-dark-950 text-slate-100 font-sans antialiased overflow-x-hidden min-h-screen selection:bg-brand-primary selection:text-white;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-dark-950;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-dark-800 rounded-full hover:bg-dark-700 transition-colors;
+}
+
+/* Glassmorphism Styles */
+.glass-panel {
+  @apply bg-dark-900/60 backdrop-blur-md border border-dark-800/80 shadow-2xl shadow-black/30;
+}
+
+.glass-card {
+  @apply bg-dark-900/40 backdrop-blur-sm border border-dark-800/50 hover:border-brand-primary/40 transition-all duration-300 shadow-lg shadow-black/10;
+}
+
+.glass-card-active {
+  @apply bg-brand-primary/10 border border-brand-primary/50 shadow-brand-primary/5 shadow-lg;
+}
+
+.glass-input {
+  @apply bg-dark-900/80 border border-dark-800 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition-all duration-200;
+}
+
+/* Gradients and Text Glow */
+.gradient-text {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-primary via-indigo-400 to-brand-secondary;
+}
+
+.gradient-text-amber {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-amber-400 to-rose-400;
+}
+
+.gradient-text-emerald {
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-cyan-400;
+}
+
+.gradient-btn {
+  @apply bg-gradient-to-r from-brand-primary to-brand-secondary hover:from-brand-primary/90 hover:to-brand-secondary/90 text-white font-semibold shadow-lg shadow-brand-primary/20 hover:shadow-brand-primary/35 transition-all duration-200 active:scale-95;
+}
+
+.glass-btn {
+  @apply bg-dark-800/80 hover:bg-dark-700/80 border border-dark-700 text-slate-200 hover:text-white font-medium transition-all duration-200 active:scale-95;
+}
+
+.text-glow {
+  text-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+}
+
+.text-glow-cyan {
+  text-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
+}
+
+/* Background animated glow orbs */
+.bg-glow-orb {
+  @apply absolute rounded-full blur-[120px] pointer-events-none opacity-25 mix-blend-screen;
+}
+
+/* Tournament Bracket Connections */
+.bracket-line {
+  stroke: theme('colors.dark.700');
+  stroke-width: 2;
+  fill: none;
+  transition: stroke 0.3s ease;
+}
+
+.bracket-line-active {
+  stroke: theme('colors.brand.primary');
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 3px rgba(99, 102, 241, 0.5));
+}
