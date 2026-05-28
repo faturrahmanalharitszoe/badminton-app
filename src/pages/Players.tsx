@@ -7,6 +7,7 @@ import {
   useRankings
 } from '../hooks/useQueries';
 import { UserPlus, Edit2, Trash2, Check, X, ShieldAlert, Star } from 'lucide-react';
+import { getAvatarColor, getJomokAvatar } from '../lib/avatar';
 
 export const Players: React.FC = () => {
   const { data: players = [], isLoading, isError } = usePlayers();
@@ -20,22 +21,6 @@ export const Players: React.FC = () => {
   const [editingName, setEditingName] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Generate color palette based on name hash for consistent avatar colors
-  const getAvatarColor = (name: string) => {
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const colors = [
-      'from-indigo-500 to-purple-500',
-      'from-cyan-500 to-blue-500',
-      'from-emerald-500 to-teal-500',
-      'from-amber-500 to-orange-500',
-      'from-rose-500 to-pink-500',
-      'from-violet-500 to-fuchsia-500'
-    ];
-    return colors[Math.abs(hash) % colors.length];
-  };
 
   const handleAddPlayer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -198,8 +183,16 @@ export const Players: React.FC = () => {
                   >
                     <div className="flex items-start gap-4">
                       {/* Avatar */}
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-tr ${getAvatarColor(player.name)} flex items-center justify-center shadow-lg shadow-black/25 flex-shrink-0 text-white font-bold text-lg tracking-wide uppercase`}>
-                        {player.name.substring(0, 2)}
+                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-tr ${getAvatarColor(player.name)} flex items-center justify-center shadow-lg shadow-black/25 flex-shrink-0 text-white font-bold text-lg tracking-wide uppercase relative overflow-hidden`}>
+                        <span className="z-0">{player.name.substring(0, 2)}</span>
+                        <img 
+                          src={getJomokAvatar(player.id)} 
+                          alt={player.name} 
+                          className="absolute inset-0 w-full h-full object-cover z-10 transition-transform duration-300 hover:scale-110"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).remove();
+                          }}
+                        />
                       </div>
 
                       {/* Name & Title */}

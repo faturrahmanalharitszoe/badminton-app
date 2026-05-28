@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { db } from '../lib/supabase';
 import { useQuery } from '@tanstack/react-query';
+import { getAvatarColor, getJomokAvatar } from '../lib/avatar';
+
 
 export const Dashboard: React.FC = () => {
   const { data: players = [] } = usePlayers();
@@ -315,6 +317,18 @@ export const Dashboard: React.FC = () => {
                           }`}>
                           {index + 1}
                         </span>
+                        {/* Avatar */}
+                        <div className={`w-6 h-6 rounded-md bg-gradient-to-tr ${getAvatarColor(ind.name)} flex items-center justify-center shadow-sm flex-shrink-0 text-white font-bold text-[8px] uppercase relative overflow-hidden`}>
+                          <span className="z-0">{ind.name.substring(0, 2)}</span>
+                          <img 
+                            src={getJomokAvatar(ind.playerId)} 
+                            alt={ind.name} 
+                            className="absolute inset-0 w-full h-full object-cover z-10 transition-transform duration-300 hover:scale-110"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).remove();
+                            }}
+                          />
+                        </div>
                         <span className="font-semibold text-slate-300 truncate">{ind.name}</span>
                       </div>
                       <span className="font-bold text-slate-400">{Math.round(ind.winRate * 100)}% WR</span>

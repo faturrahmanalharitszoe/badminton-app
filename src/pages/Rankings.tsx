@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useRankings } from '../hooks/useQueries';
 import { Search, Medal, RefreshCw, BarChart3, HelpCircle } from 'lucide-react';
+import { getAvatarColor, getJomokAvatar } from '../lib/avatar';
 
 export const Rankings: React.FC = () => {
   const { data: rankings, isLoading, isRefetching, refetch } = useRankings();
@@ -206,7 +207,21 @@ export const Rankings: React.FC = () => {
                             {getRankIcon(rank)}
                           </td>
                           <td className="py-4 px-4 font-semibold text-white truncate max-w-xs">
-                            {ind.name}
+                            <div className="flex items-center gap-3">
+                              {/* Avatar */}
+                              <div className={`w-8 h-8 rounded-lg bg-gradient-to-tr ${getAvatarColor(ind.name)} flex items-center justify-center shadow-md flex-shrink-0 text-white font-bold text-[10px] uppercase relative overflow-hidden`}>
+                                <span className="z-0">{ind.name.substring(0, 2)}</span>
+                                <img 
+                                  src={getJomokAvatar(ind.playerId)} 
+                                  alt={ind.name} 
+                                  className="absolute inset-0 w-full h-full object-cover z-10 transition-transform duration-300 hover:scale-110"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).remove();
+                                  }}
+                                />
+                              </div>
+                              <span className="truncate">{ind.name}</span>
+                            </div>
                           </td>
                           <td className="py-4 px-4 text-center font-bold text-slate-300">{ind.matchesPlayed}</td>
                           <td className="py-4 px-4 text-center font-bold text-emerald-400">{ind.wins}</td>
