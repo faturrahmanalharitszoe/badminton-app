@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   usePlayers,
@@ -29,30 +29,40 @@ export const Dashboard: React.FC = () => {
     queryFn: db.getAllMatches,
   });
 
-  const activeTournaments = tournaments.filter((t) => t.status === 'active');
-  const completedMatches = allMatches.filter((m) => m.winner !== null);
+  const activeTournaments = useMemo(() => tournaments.filter((t) => t.status === 'active'), [tournaments]);
+  const completedMatches = useMemo(() => allMatches.filter((m) => m.winner !== null), [allMatches]);
 
   // Sort and take last 4 completed matches for recent results feed
-  const recentResults = [...completedMatches]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 4);
+  const recentResults = useMemo(() => {
+    return [...completedMatches]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 4);
+  }, [completedMatches]);
 
-  const topPairs = rankings?.pairs?.slice(0, 3) || [];
-  const topIndividuals = rankings?.individuals?.slice(0, 3) || [];
+  const topPairs = useMemo(() => rankings?.pairs?.slice(0, 3) || [], [rankings]);
+  const topIndividuals = useMemo(() => rankings?.individuals?.slice(0, 3) || [], [rankings]);
 
-  const getPlayerName = (id: string) => {
+  const playerLookup = useMemo(() => {
+    const map = new Map<string, string>();
+    players.forEach((p) => {
+      map.set(p.id, p.name);
+    });
+    return map;
+  }, [players]);
+
+  const getPlayerName = useCallback((id: string) => {
     if (id === 'ghost') return '👻 GHOST';
-    return players.find((p) => p.id === id)?.name || 'Unknown';
-  };
+    return playerLookup.get(id) || 'Tidak Diketahui';
+  }, [playerLookup]);
 
-  const getTeamNames = (teamIds: string[]) => {
+  const getTeamNames = useCallback((teamIds: string[]) => {
     if (!teamIds || teamIds.length === 0) return 'Bye';
     return teamIds.map((id) => getPlayerName(id)).join(' & ');
-  };
+  }, [getPlayerName]);
 
-  const getTournamentName = (tId: string) => {
+  const getTournamentName = useCallback((tId: string) => {
     return tournaments.find((t) => t.id === tId)?.name || 'Mabar Smash';
-  };
+  }, [tournaments]);
 
   return (
     <div className="space-y-8">

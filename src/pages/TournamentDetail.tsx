@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   useTournament,
@@ -75,15 +75,23 @@ export const TournamentDetail: React.FC = () => {
     );
   }
 
-  const getPlayerName = (pId: string) => {
-    if (pId === 'ghost') return '👻 GHOST';
-    return players.find((p) => p.id === pId)?.name || 'Tidak Diketahui';
-  };
+  const playerLookup = useMemo(() => {
+    const map = new Map<string, string>();
+    players.forEach((p) => {
+      map.set(p.id, p.name);
+    });
+    return map;
+  }, [players]);
 
-  const getTeamNames = (teamIds: string[]) => {
+  const getPlayerName = useCallback((pId: string) => {
+    if (pId === 'ghost') return '👻 GHOST';
+    return playerLookup.get(pId) || 'Tidak Diketahui';
+  }, [playerLookup]);
+
+  const getTeamNames = useCallback((teamIds: string[]) => {
     if (!teamIds || teamIds.length === 0) return 'Menunggu...';
     return teamIds.map((id) => getPlayerName(id)).join(' & ');
-  };
+  }, [getPlayerName]);
 
   const handleOpenScoreModal = (match: any) => {
     // Cannot play matches that don't have teams filled yet
@@ -152,51 +160,57 @@ export const TournamentDetail: React.FC = () => {
   };
 
   // Math setup for drawing the bracket tree
-  const maxRound = Math.max(...matches.map((m) => m.round), 1);
   const cardWidth = 260;
   const colSpacing = 80;
   const cardHeight = 110;
   const cardSpacing = 40;
-  
-  // Height of the leaf column (Round 1)
-  const numMatchesRound1 = Math.pow(2, maxRound - 1);
-  const totalHeight = numMatchesRound1 * cardHeight + (numMatchesRound1 - 1) * cardSpacing;
-  const totalWidth = maxRound * cardWidth + (maxRound - 1) * colSpacing;
 
-  // Cache of node Y positions
-  const nodeYCache = new Map<string, number>();
-
-  const getCoords = (round: number, index: number) => {
-    const x = (round - 1) * (cardWidth + colSpacing);
-    const cacheKey = `${round}_${index}`;
+  const { positionedMatches, totalWidth, totalHeight, maxRound } = useMemo(() => {
+    if (matches.length === 0) {
+      return { positionedMatches: [], totalWidth: 0, totalHeight: 0, maxRound: 1 };
+    }
+    const mRound = Math.max(...matches.map((m) => m.round), 1);
     
-    if (nodeYCache.has(cacheKey)) {
-      return { x, y: nodeYCache.get(cacheKey)! };
-    }
+    // Height of the leaf column (Round 1)
+    const numMatchesRound1 = Math.pow(2, mRound - 1);
+    const tHeight = numMatchesRound1 * cardHeight + (numMatchesRound1 - 1) * cardSpacing;
+    const tWidth = mRound * cardWidth + (mRound - 1) * colSpacing;
 
-    let y = 0;
-    if (round === 1) {
-      y = index * (cardHeight + cardSpacing);
-    } else {
-      // average of children coordinates in previous round
-      const child1 = getCoords(round - 1, index * 2);
-      const child2 = getCoords(round - 1, index * 2 + 1);
-      y = (child1.y + child2.y) / 2;
-    }
+    // Cache of node Y positions
+    const nodeYCache = new Map<string, number>();
 
-    nodeYCache.set(cacheKey, y);
-    return { x, y };
-  };
+    const getCoords = (round: number, index: number): { x: number; y: number } => {
+      const x = (round - 1) * (cardWidth + colSpacing);
+      const cacheKey = `${round}_${index}`;
+      
+      if (nodeYCache.has(cacheKey)) {
+        return { x, y: nodeYCache.get(cacheKey)! };
+      }
 
-  // Pre-calculate positions for all matches
-  const positionedMatches = matches.map((match) => {
-    const coords = getCoords(match.round, match.match_index);
-    return {
-      ...match,
-      x: coords.x,
-      y: coords.y,
+      let y = 0;
+      if (round === 1) {
+        y = index * (cardHeight + cardSpacing);
+      } else {
+        const child1 = getCoords(round - 1, index * 2);
+        const child2 = getCoords(round - 1, index * 2 + 1);
+        y = (child1.y + child2.y) / 2;
+      }
+
+      nodeYCache.set(cacheKey, y);
+      return { x, y };
     };
-  });
+
+    const positioned = matches.map((match) => {
+      const coords = getCoords(match.round, match.match_index);
+      return {
+        ...match,
+        x: coords.x,
+        y: coords.y,
+      };
+    });
+
+    return { positionedMatches: positioned, totalWidth: tWidth, totalHeight: tHeight, maxRound: mRound };
+  }, [matches]);
 
   return (
     <div className="space-y-6">

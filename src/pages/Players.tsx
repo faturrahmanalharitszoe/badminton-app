@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   usePlayers,
   useAddPlayer,
@@ -83,11 +83,20 @@ export const Players: React.FC = () => {
     }
   };
 
+  const playerStatsMap = useMemo(() => {
+    const map = new Map<string, any>();
+    if (rankings && rankings.individuals) {
+      rankings.individuals.forEach((ind) => {
+        map.set(ind.playerId, ind);
+      });
+    }
+    return map;
+  }, [rankings]);
+
   // Find individual stats for a player
-  const getPlayerStats = (playerId: string) => {
-    if (!rankings || !rankings.individuals) return null;
-    return rankings.individuals.find((ind) => ind.playerId === playerId) || null;
-  };
+  const getPlayerStats = useCallback((playerId: string) => {
+    return playerStatsMap.get(playerId) || null;
+  }, [playerStatsMap]);
 
   return (
     <div className="space-y-8">
