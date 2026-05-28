@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -9,7 +9,9 @@ import {
   Menu,
   X,
   Sparkles,
-  Info
+  Info,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { hasSupabaseConfig } from '../lib/supabase';
 
@@ -20,6 +22,26 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') return saved;
+    return 'dark'; // default to dark
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
 
   const menuItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
@@ -34,7 +56,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-dark-950 text-slate-100 overflow-x-hidden relative">
+    <div className="min-h-screen flex flex-col md:flex-row bg-dark-950 text-slate-100 overflow-x-hidden relative transition-colors duration-300">
       {/* Background Animated Glow Orbs */}
       <div className="bg-glow-orb w-[500px] h-[500px] bg-brand-primary/10 top-[-100px] left-[-100px]" />
       <div className="bg-glow-orb w-[600px] h-[600px] bg-brand-secondary/10 bottom-[-100px] right-[-100px]" />
@@ -48,7 +70,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
           <div>
             <h1 className="font-bold text-lg tracking-tight font-sans">AMBA<span className="text-brand-secondary font-semibold">LANTON</span></h1>
-            <p className="text-[10px] text-slate-400 font-medium tracking-widest uppercase">Aplikasi Badminton</p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium tracking-widest uppercase">Aplikasi Badminton</p>
           </div>
         </div>
 
@@ -62,8 +84,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 key={item.path}
                 to={item.path}
                 className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-200 group relative ${Active
-                  ? 'glass-card-active text-white font-semibold'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-dark-900/40'
+                  ? 'glass-card-active text-brand-primary dark:text-white font-semibold'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-dark-900/40'
                   }`}
               >
                 {Active && (
@@ -79,6 +101,18 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           })}
         </nav>
 
+        {/* Theme Toggle Button */}
+        <div className="px-6 py-4 border-t border-dark-800/80 flex items-center justify-between">
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold tracking-widest uppercase">Tema</span>
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-xl bg-slate-200/60 dark:bg-dark-900 border border-slate-300 dark:border-dark-800 hover:bg-slate-300 dark:hover:bg-dark-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95 cursor-pointer"
+            title={theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}
+          >
+            {theme === 'dark' ? <Sun className="w-4.5 h-4.5 text-amber-400 fill-amber-400/20" /> : <Moon className="w-4.5 h-4.5 text-brand-primary fill-brand-primary/20" />}
+          </button>
+        </div>
+
         {/* Connection status footer */}
         <div className="p-4 border-t border-dark-800/80">
           <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${hasSupabaseConfig
@@ -87,8 +121,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             }`}>
             <Database className={`w-4 h-4 ${hasSupabaseConfig ? 'text-emerald-400 animate-pulse' : 'text-amber-400'}`} />
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] text-slate-400 font-semibold tracking-wide uppercase">Status Koneksi</p>
-              <p className="text-xs font-bold text-slate-200 truncate">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold tracking-wide uppercase">Status Koneksi</p>
+              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
                 {hasSupabaseConfig ? 'Terhubung Supabase' : 'Mode Demo Lokal'}
               </p>
             </div>
@@ -105,12 +139,22 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           <h1 className="font-bold text-base tracking-tight">AMBA<span className="text-brand-secondary">LANTON</span></h1>
         </div>
 
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-1.5 rounded-lg bg-dark-900 border border-dark-800 hover:bg-dark-800 text-slate-300 hover:text-white transition-colors"
-        >
-          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={toggleTheme}
+            className="p-1.5 rounded-lg bg-slate-200/60 dark:bg-dark-900 border border-slate-300 dark:border-dark-800 hover:bg-slate-300 dark:hover:bg-dark-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all active:scale-95 cursor-pointer"
+            title={theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400 fill-amber-400/20" /> : <Moon className="w-4 h-4 text-brand-primary fill-brand-primary/20" />}
+          </button>
+
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-1.5 rounded-lg bg-slate-200/60 dark:bg-dark-900 border border-slate-300 dark:border-dark-800 hover:bg-slate-300 dark:hover:bg-dark-800 text-slate-300 hover:text-white transition-colors"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </header>
 
       {/* Mobile Drawer Navigation */}
@@ -126,8 +170,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   to={item.path}
                   onClick={() => setMobileMenuOpen(false)}
                   className={`flex items-center gap-4 px-5 py-3.5 rounded-xl border ${Active
-                    ? 'bg-brand-primary/10 border-brand-primary/40 text-white font-semibold'
-                    : 'border-dark-800 bg-dark-900/40 text-slate-400'
+                    ? 'bg-brand-primary/10 border-brand-primary/40 text-brand-primary dark:text-white font-semibold'
+                    : 'border-slate-300 dark:border-dark-800 bg-slate-100/50 dark:bg-dark-900/40 text-slate-600 dark:text-slate-400'
                     }`}
                 >
                   <Icon className={`w-5 h-5 ${Active ? 'text-brand-secondary' : 'text-slate-500'}`} />
@@ -144,8 +188,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             }`}>
             <Database className={`w-5 h-5 ${hasSupabaseConfig ? 'text-emerald-400' : 'text-amber-400'}`} />
             <div>
-              <p className="text-[10px] text-slate-400 font-semibold tracking-wide uppercase">Status Koneksi</p>
-              <p className="text-sm font-bold text-slate-200">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold tracking-wide uppercase">Status Koneksi</p>
+              <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
                 {hasSupabaseConfig ? 'Terhubung Supabase' : 'Mode Demo Lokal'}
               </p>
             </div>
@@ -157,7 +201,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       <main className="flex-1 min-h-screen md:pl-64 flex flex-col">
         {/* Connection Notice banner for Demo Mode */}
         {!hasSupabaseConfig && (
-          <div className="bg-gradient-to-r from-amber-500/10 via-amber-600/10 to-amber-500/10 border-b border-amber-500/20 px-6 py-2.5 flex items-center justify-between text-[11px] text-amber-200/90 font-medium tracking-wide">
+          <div className="bg-gradient-to-r from-amber-500/10 via-amber-600/10 to-amber-500/10 border-b border-amber-500/20 px-6 py-2.5 flex items-center justify-between text-[11px] text-amber-800 dark:text-amber-200/90 font-medium tracking-wide">
             <div className="flex items-center gap-2">
               <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
               <span>Saat ini Anda berada di <strong>Mode Demo</strong>. Data disimpan secara lokal di browser ini. Untuk menyimpan di cloud, konfigurasikan file <code>.env</code> Anda.</span>

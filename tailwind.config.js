@@ -12,14 +12,27 @@ export default {
           primary: '#6366f1', // Indigo
           secondary: '#06b6d4', // Cyan
         },
-        // Custom dark shades for slate glassmorphism
+        // Custom dark shades mapped to CSS variables for dynamic Dark/Light theme
         dark: {
-          950: '#060814',
-          900: '#0c0f24',
-          800: '#151b3d',
-          700: '#22295c',
-          600: '#323d7a',
-          500: '#46539c',
+          950: 'var(--bg-950)',
+          900: 'var(--bg-900)',
+          800: 'var(--bg-800)',
+          700: 'var(--bg-700)',
+          600: 'var(--bg-600)',
+          500: 'var(--bg-500)',
+        },
+        slate: {
+          50: '#f8fafc',
+          100: 'var(--text-100)',
+          200: 'var(--text-200)',
+          300: 'var(--text-300)',
+          400: 'var(--text-400)',
+          500: 'var(--text-500)',
+          600: '#475569',
+          700: '#334155',
+          800: '#1e293b',
+          900: '#0f172a',
+          950: '#020617',
         }
       },
       fontFamily: {

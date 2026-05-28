@@ -3,9 +3,70 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
 
+:root {
+  /* Light Mode Colors */
+  --bg-950: #f8fafc; /* slate-50 */
+  --bg-900: #ffffff; /* white */
+  --bg-800: #f1f5f9; /* slate-100 */
+  --bg-700: #e2e8f0; /* slate-200 */
+  --bg-600: #cbd5e1; /* slate-300 */
+  --bg-500: #94a3b8; /* slate-400 */
+
+  --text-100: #0f172a; /* slate-900 */
+  --text-200: #1e293b; /* slate-800 */
+  --text-300: #334155; /* slate-700 */
+  --text-400: #475569; /* slate-600 */
+  --text-500: #64748b; /* slate-500 */
+
+  --panel-bg: rgba(255, 255, 255, 0.75);
+  --panel-border: rgba(226, 232, 240, 0.85);
+  --card-bg: rgba(255, 255, 255, 0.5);
+  --card-border: rgba(226, 232, 240, 0.65);
+  --input-bg: #ffffff;
+  --input-border: #cbd5e1;
+  --button-bg: #f1f5f9;
+  --button-hover: #e2e8f0;
+  --button-border: #cbd5e1;
+  --button-text: #334155;
+  --panel-shadow: rgba(0, 0, 0, 0.04);
+  --bracket-line: #cbd5e1;
+}
+
+.dark {
+  /* Dark Mode Colors (Original) */
+  --bg-950: #060814;
+  --bg-900: #0c0f24;
+  --bg-800: #151b3d;
+  --bg-700: #22295c;
+  --bg-600: #323d7a;
+  --bg-500: #46539c;
+
+  --text-100: #f1f5f9; /* slate-100 */
+  --text-200: #e2e8f0; /* slate-200 */
+  --text-300: #cbd5e1; /* slate-300 */
+  --text-400: #94a3b8; /* slate-400 */
+  --text-500: #64748b; /* slate-500 */
+
+  --panel-bg: rgba(12, 15, 36, 0.6);
+  --panel-border: rgba(21, 27, 61, 0.8);
+  --card-bg: rgba(12, 15, 36, 0.4);
+  --card-border: rgba(21, 27, 61, 0.5);
+  --input-bg: rgba(12, 15, 36, 0.8);
+  --input-border: #151b3d;
+  --button-bg: rgba(21, 27, 61, 0.8);
+  --button-hover: rgba(34, 41, 92, 0.8);
+  --button-border: #22295c;
+  --button-text: #e2e8f0;
+  --panel-shadow: rgba(0, 0, 0, 0.3);
+  --bracket-line: #151b3d;
+}
+
 @layer base {
   body {
-    @apply bg-dark-950 text-slate-100 font-sans antialiased overflow-x-hidden min-h-screen selection:bg-brand-primary selection:text-white;
+    background-color: var(--bg-950);
+    color: var(--text-100);
+    @apply font-sans antialiased overflow-x-hidden min-h-screen selection:bg-brand-primary selection:text-white;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 }
 
@@ -16,20 +77,31 @@
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-dark-950;
+  background-color: var(--bg-950);
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-dark-800 rounded-full hover:bg-dark-700 transition-colors;
+  background-color: var(--bg-800);
+  @apply rounded-full hover:bg-dark-700 transition-colors;
 }
 
 /* Glassmorphism Styles */
 .glass-panel {
-  @apply bg-dark-900/60 backdrop-blur-md border border-dark-800/80 shadow-2xl shadow-black/30;
+  background-color: var(--panel-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 25px 50px -12px var(--panel-shadow);
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .glass-card {
-  @apply bg-dark-900/40 backdrop-blur-sm border border-dark-800/50 hover:border-brand-primary/40 transition-all duration-300 shadow-lg shadow-black/10;
+  background-color: var(--card-bg);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 10px 15px -3px var(--panel-shadow);
+  transition: all 0.3s ease;
 }
 
 .glass-card-active {
@@ -37,7 +109,11 @@
 }
 
 .glass-input {
-  @apply bg-dark-900/80 border border-dark-800 rounded-xl px-4 py-2.5 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary transition-all duration-200;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--text-100);
+  @apply rounded-xl px-4 py-2.5 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-primary/50 focus:border-brand-primary;
+  transition: all 0.2s ease;
 }
 
 /* Gradients and Text Glow */
@@ -58,7 +134,13 @@
 }
 
 .glass-btn {
-  @apply bg-dark-800/80 hover:bg-dark-700/80 border border-dark-700 text-slate-200 hover:text-white font-medium transition-all duration-200 active:scale-95;
+  background-color: var(--button-bg);
+  border: 1px solid var(--button-border);
+  color: var(--button-text);
+  @apply font-medium transition-all duration-200 active:scale-95;
+}
+.glass-btn:hover {
+  background-color: var(--button-hover);
 }
 
 .text-glow {
@@ -76,7 +158,7 @@
 
 /* Tournament Bracket Connections */
 .bracket-line {
-  stroke: theme('colors.dark.700');
+  stroke: var(--bracket-line);
   stroke-width: 2;
   fill: none;
   transition: stroke 0.3s ease;
@@ -86,4 +168,22 @@
   stroke: theme('colors.brand.primary');
   stroke-width: 2.5;
   filter: drop-shadow(0 0 3px rgba(99, 102, 241, 0.5));
+}
+
+/* Light Mode Overrides for Headings and specific elements */
+html:not(.dark) h1,
+html:not(.dark) h2,
+html:not(.dark) h3,
+html:not(.dark) h4,
+html:not(.dark) h5,
+html:not(.dark) h6 {
+  color: #0f172a !important; /* slate-900 */
+}
+
+html:not(.dark) .text-slate-400 {
+  color: #475569 !important; /* slate-600 */
+}
+
+html:not(.dark) .text-slate-200 {
+  color: #1e293b !important; /* slate-800 */
 }
