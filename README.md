@@ -1,4 +1,4 @@
-# 🏸 AmbaLanton — Badminton Tournament & Ranking App
+# 🏸 AmbaLanton
 
 **AmbaLanton** (sebelumnya *Mabar Smash*) adalah aplikasi web premium modern untuk mengelola mabar (main bareng) badminton, membuat bagan pertandingan ganda putra (*Men's Doubles - MD*) atau tunggal (*Singles*), serta menghitung peringkat pemain dan pasangan secara otomatis secara real-time.
 
