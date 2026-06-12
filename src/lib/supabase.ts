@@ -53,8 +53,6 @@ const supabase = hasSupabaseConfig ? createClient(supabaseUrl, supabaseAnonKey) 
 // ── Auto-detect set_scores column availability ──
 // The anon key cannot run DDL, so we probe once and cache the result.
 // If missing, localStorage bridge handles persistence until the column is added.
-let setScoresColumnExists = false;
-
 const probeSetScoresColumn = async () => {
   if (!supabase) return;
   try {
@@ -65,7 +63,6 @@ const probeSetScoresColumn = async () => {
     if (error) {
       const msg = (error.message || '').toLowerCase();
       if (msg.includes('set_scores') || msg.includes('column') || msg.includes('schema cache')) {
-        setScoresColumnExists = false;
         console.info(
           '%c[Badminton App] set_scores column not found in Supabase.\n' +
           'Run this SQL in your Supabase SQL Editor to enable cloud persistence:\n\n' +
@@ -73,15 +70,12 @@ const probeSetScoresColumn = async () => {
           'Until then, set_scores are saved in localStorage (browser only).',
           'color: #f59e0b; font-weight: bold;'
         );
-      } else {
-        setScoresColumnExists = false;
       }
     } else {
-      setScoresColumnExists = true;
       console.info('%c[Badminton App] set_scores column detected ✓', 'color: #22c55e;');
     }
   } catch {
-    setScoresColumnExists = false;
+    // Ignore error
   }
 };
 
