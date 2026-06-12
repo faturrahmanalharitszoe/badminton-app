@@ -10,11 +10,12 @@ import { Trophy, ArrowLeft, Edit3, Calendar, Award, Info, AlertTriangle } from '
 import confetti from 'canvas-confetti';
 import { useQueryClient } from '@tanstack/react-query';
 import { db } from '../lib/supabase';
+import { getAvatarColor, getJomokAvatar } from '../lib/avatar';
 
 export const TournamentDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const tournamentId = id || '';
-  
+
   const { data: tournament, isLoading: loadingTournament } = useTournament(tournamentId);
   const { data: matches = [], isLoading: loadingMatches } = useMatches(tournamentId);
   const { data: players = [] } = usePlayers();
@@ -23,9 +24,127 @@ export const TournamentDetail: React.FC = () => {
 
   // Score modal states
   const [selectedMatch, setSelectedMatch] = useState<any | null>(null);
-  const [score1, setScore1] = useState<string>('');
-  const [score2, setScore2] = useState<string>('');
+  const [sets, setSets] = useState<{ t1: string; t2: string }[]>([{ t1: '', t2: '' }]);
   const [modalError, setModalError] = useState<string | null>(null);
+
+  // Player lookup map - must be before conditional returns (Rules of Hooks)
+  const playerLookup = useMemo(() => {
+    const map = new Map<string, string>();
+    players.forEach((p) => {
+      map.set(p.id, p.name);
+    });
+    return map;
+  }, [players]);
+
+  const getPlayerName = useCallback((pId: string) => {
+    if (pId === 'ghost') return '👻 GHOST';
+    return playerLookup.get(pId) || 'Tidak Diketahui';
+  }, [playerLookup]);
+
+  const getTeamNames = useCallback((teamIds: string[]) => {
+    if (!teamIds || teamIds.length === 0) return 'Menunggu...';
+    return teamIds.map((id) => getPlayerName(id)).join(' & ');
+  }, [getPlayerName]);
+
+  // Helper component to render player avatar with name
+  const PlayerAvatarWithName = useCallback(({ pId, showName = true }: { pId: string; showName?: boolean }) => {
+    if (pId === 'ghost') {
+      return <span className="text-slate-400">👻 GHOST</span>;
+    }
+    const name = playerLookup.get(pId) || 'Tidak Diketahui';
+    return (
+      <Link
+        to={`/players/${pId}`}
+        className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className={`w-5 h-5 rounded-md bg-gradient-to-tr ${getAvatarColor(name)} flex items-center justify-center text-white text-[8px] font-bold uppercase relative overflow-hidden flex-shrink-0`}
+        >
+          <span className="z-0">{name.substring(0, 1)}</span>
+          <img
+            src={getJomokAvatar(pId)}
+            alt={name}
+            className="absolute inset-0 w-full h-full object-cover z-10"
+            onError={(e) => {
+              (e.target as HTMLImageElement).remove();
+            }}
+          />
+        </div>
+        {showName && <span className="truncate">{name}</span>}
+      </Link>
+    );
+  }, [playerLookup]);
+
+  // Helper component to render team with avatars
+  const TeamDisplay = useCallback(({ teamIds, isWinner, isLoser }: { teamIds: string[]; isWinner?: boolean; isLoser?: boolean }) => {
+    if (!teamIds || teamIds.length === 0) {
+      return <span className="text-slate-500 italic">Menunggu...</span>;
+    }
+    return (
+      <div className={`flex items-center gap-1 flex-wrap ${isWinner ? 'text-emerald-300' : isLoser ? 'text-slate-500 line-through' : 'text-slate-300'}`}>
+        {teamIds.map((pId, idx) => (
+          <React.Fragment key={pId}>
+            <PlayerAvatarWithName pId={pId} />
+            {idx < teamIds.length - 1 && <span className="text-slate-500">&</span>}
+          </React.Fragment>
+        ))}
+      </div>
+    );
+  }, [PlayerAvatarWithName]);
+
+  // Math setup for drawing the bracket tree - MUST be before conditional returns (Rules of Hooks)
+  const cardWidth = 260;
+  const colSpacing = 80;
+  const cardHeight = 110;
+  const cardSpacing = 40;
+
+  const { positionedMatches, totalWidth, totalHeight, maxRound } = useMemo(() => {
+    if (matches.length === 0) {
+      return { positionedMatches: [], totalWidth: 0, totalHeight: 0, maxRound: 1 };
+    }
+    const mRound = Math.max(...matches.map((m) => m.round), 1);
+
+    // Height of the leaf column (Round 1)
+    const numMatchesRound1 = Math.pow(2, mRound - 1);
+    const tHeight = numMatchesRound1 * cardHeight + (numMatchesRound1 - 1) * cardSpacing;
+    const tWidth = mRound * cardWidth + (mRound - 1) * colSpacing;
+
+    // Cache of node Y positions
+    const nodeYCache = new Map<string, number>();
+
+    const getCoords = (round: number, index: number): { x: number; y: number } => {
+      const x = (round - 1) * (cardWidth + colSpacing);
+      const cacheKey = `${round}_${index}`;
+
+      if (nodeYCache.has(cacheKey)) {
+        return { x, y: nodeYCache.get(cacheKey)! };
+      }
+
+      let y = 0;
+      if (round === 1) {
+        y = index * (cardHeight + cardSpacing);
+      } else {
+        const child1 = getCoords(round - 1, index * 2);
+        const child2 = getCoords(round - 1, index * 2 + 1);
+        y = (child1.y + child2.y) / 2;
+      }
+
+      nodeYCache.set(cacheKey, y);
+      return { x, y };
+    };
+
+    const positioned = matches.map((match) => {
+      const coords = getCoords(match.round, match.match_index);
+      return {
+        ...match,
+        x: coords.x,
+        y: coords.y,
+      };
+    });
+
+    return { positionedMatches: positioned, totalWidth: tWidth, totalHeight: tHeight, maxRound: mRound };
+  }, [matches]);
 
   // Trigger confetti if tournament status changes to completed
   useEffect(() => {
@@ -75,58 +194,60 @@ export const TournamentDetail: React.FC = () => {
     );
   }
 
-  const playerLookup = useMemo(() => {
-    const map = new Map<string, string>();
-    players.forEach((p) => {
-      map.set(p.id, p.name);
-    });
-    return map;
-  }, [players]);
-
-  const getPlayerName = useCallback((pId: string) => {
-    if (pId === 'ghost') return '👻 GHOST';
-    return playerLookup.get(pId) || 'Tidak Diketahui';
-  }, [playerLookup]);
-
-  const getTeamNames = useCallback((teamIds: string[]) => {
-    if (!teamIds || teamIds.length === 0) return 'Menunggu...';
-    return teamIds.map((id) => getPlayerName(id)).join(' & ');
-  }, [getPlayerName]);
-
   const handleOpenScoreModal = (match: any) => {
-    // Cannot play matches that don't have teams filled yet
     if (!match.team1_ids.length || !match.team2_ids.length) return;
 
     setSelectedMatch(match);
-    setScore1(match.score1 !== null ? String(match.score1) : '');
-    setScore2(match.score2 !== null ? String(match.score2) : '');
+    // Restore previous set scores if editing, otherwise start with 1 empty set
+    if (match.set_scores && match.set_scores.length > 0) {
+      setSets(match.set_scores.map((s: any) => ({ t1: String(s.team1), t2: String(s.team2) })));
+    } else {
+      setSets([{ t1: '', t2: '' }]);
+    }
     setModalError(null);
   };
 
   const handleSaveScore = async () => {
     if (!selectedMatch) return;
-    const s1 = parseInt(score1);
-    const s2 = parseInt(score2);
 
-    if (isNaN(s1) || isNaN(s2) || s1 < 0 || s2 < 0) {
-      setModalError('Silakan masukkan skor non-negatif yang valid');
+    // Parse all set scores
+    const parsed = sets.map((s) => ({ team1: parseInt(s.t1), team2: parseInt(s.t2) }));
+    const valid = parsed.every((s) => !isNaN(s.team1) && !isNaN(s.team2) && s.team1 >= 0 && s.team2 >= 0);
+    if (!valid) {
+      setModalError('Silakan masukkan skor non-negatif yang valid untuk semua set');
       return;
     }
 
-    if (s1 === s2) {
-      setModalError('Pertandingan bulu tangkis tidak bisa berakhir seri');
+    // Each set must have a winner (no ties in badminton)
+    const hasTie = parsed.some((s) => s.team1 === s.team2);
+    if (hasTie) {
+      setModalError('Setiap set tidak boleh seri');
       return;
     }
 
-    const winner: 1 | 2 = s1 > s2 ? 1 : 2;
+    // Best of 3: count sets won by each team
+    let team1Sets = 0;
+    let team2Sets = 0;
+    parsed.forEach((s) => {
+      if (s.team1 > s.team2) team1Sets++;
+      else team2Sets++;
+    });
+
+    if (team1Sets === team2Sets) {
+      setModalError('Pertandingan tidak boleh seri — isi cukup set untuk menentukan pemenang');
+      return;
+    }
+
+    const winner: 1 | 2 = team1Sets > team2Sets ? 1 : 2;
 
     try {
       await updateMatchScoreMutation.mutateAsync({
         tournamentId,
         match: selectedMatch,
-        score1: s1,
-        score2: s2,
+        score1: team1Sets,
+        score2: team2Sets,
         winner,
+        set_scores: parsed,
       });
       setSelectedMatch(null);
     } catch (err: any) {
@@ -136,10 +257,10 @@ export const TournamentDetail: React.FC = () => {
 
   const handleSwapPlayer = async (teamNum: 1 | 2, playerIndex: number, newPlayerId: string) => {
     if (!selectedMatch) return;
-    
+
     let updatedTeam1 = [...selectedMatch.team1_ids];
     let updatedTeam2 = [...selectedMatch.team2_ids];
-    
+
     if (teamNum === 1) {
       updatedTeam1[playerIndex] = newPlayerId;
     } else {
@@ -158,59 +279,6 @@ export const TournamentDetail: React.FC = () => {
       alert(err.message || 'Gagal mengganti pemain');
     }
   };
-
-  // Math setup for drawing the bracket tree
-  const cardWidth = 260;
-  const colSpacing = 80;
-  const cardHeight = 110;
-  const cardSpacing = 40;
-
-  const { positionedMatches, totalWidth, totalHeight, maxRound } = useMemo(() => {
-    if (matches.length === 0) {
-      return { positionedMatches: [], totalWidth: 0, totalHeight: 0, maxRound: 1 };
-    }
-    const mRound = Math.max(...matches.map((m) => m.round), 1);
-    
-    // Height of the leaf column (Round 1)
-    const numMatchesRound1 = Math.pow(2, mRound - 1);
-    const tHeight = numMatchesRound1 * cardHeight + (numMatchesRound1 - 1) * cardSpacing;
-    const tWidth = mRound * cardWidth + (mRound - 1) * colSpacing;
-
-    // Cache of node Y positions
-    const nodeYCache = new Map<string, number>();
-
-    const getCoords = (round: number, index: number): { x: number; y: number } => {
-      const x = (round - 1) * (cardWidth + colSpacing);
-      const cacheKey = `${round}_${index}`;
-      
-      if (nodeYCache.has(cacheKey)) {
-        return { x, y: nodeYCache.get(cacheKey)! };
-      }
-
-      let y = 0;
-      if (round === 1) {
-        y = index * (cardHeight + cardSpacing);
-      } else {
-        const child1 = getCoords(round - 1, index * 2);
-        const child2 = getCoords(round - 1, index * 2 + 1);
-        y = (child1.y + child2.y) / 2;
-      }
-
-      nodeYCache.set(cacheKey, y);
-      return { x, y };
-    };
-
-    const positioned = matches.map((match) => {
-      const coords = getCoords(match.round, match.match_index);
-      return {
-        ...match,
-        x: coords.x,
-        y: coords.y,
-      };
-    });
-
-    return { positionedMatches: positioned, totalWidth: tWidth, totalHeight: tHeight, maxRound: mRound };
-  }, [matches]);
 
   return (
     <div className="space-y-6">
@@ -269,17 +337,17 @@ export const TournamentDetail: React.FC = () => {
           >
             {positionedMatches.map((match) => {
               if (!match.next_match_id) return null;
-              
+
               // Find parent coords
               const parentMatch = positionedMatches.find((m) => m.id === match.next_match_id);
               if (!parentMatch) return null;
 
               const x1 = match.x + cardWidth;
               const y1 = match.y + cardHeight / 2;
-              
+
               const x2 = parentMatch.x;
               const y2 = parentMatch.y + cardHeight / 2;
-              
+
               const xMid = (x1 + x2) / 2;
 
               // Highlight line if match is played and its winner is going to the next match
@@ -303,7 +371,7 @@ export const TournamentDetail: React.FC = () => {
             const isTeam1Bye = match.round === 1 && match.team1_ids.length === 0 && match.team2_ids.length > 0;
             const isTeam2Bye = match.round === 1 && match.team2_ids.length === 0 && match.team1_ids.length > 0;
             const hasTeams = match.team1_ids.length > 0 && match.team2_ids.length > 0;
-            
+
             // Check active state
             const isClickable = hasTeams;
 
@@ -311,11 +379,10 @@ export const TournamentDetail: React.FC = () => {
               <div
                 key={match.id}
                 onClick={() => isClickable && handleOpenScoreModal(match)}
-                className={`absolute glass-card rounded-xl p-3 flex flex-col justify-between shadow-md transition-all duration-300 z-10 ${
-                  isClickable 
-                    ? 'cursor-pointer hover:scale-102 hover:shadow-lg' 
-                    : 'opacity-85'
-                }`}
+                className={`absolute glass-card rounded-xl p-3 flex flex-col justify-between shadow-md transition-all duration-300 z-10 ${isClickable
+                  ? 'cursor-pointer hover:scale-102 hover:shadow-lg'
+                  : 'opacity-85'
+                  }`}
                 style={{
                   width: `${cardWidth}px`,
                   height: `${cardHeight}px`,
@@ -332,38 +399,48 @@ export const TournamentDetail: React.FC = () => {
                 </div>
 
                 {/* Team 1 Row */}
-                <div className={`flex items-center justify-between text-xs py-1 rounded px-1.5 ${
-                  match.winner === 1 
-                    ? 'bg-emerald-500/5 text-emerald-300 border border-emerald-500/10 font-bold' 
-                    : match.winner === 2 
-                    ? 'text-slate-500 line-through' 
+                <div className={`flex items-center justify-between text-xs py-1 rounded px-1.5 ${match.winner === 1
+                  ? 'bg-emerald-500/5 border border-emerald-500/10'
+                  : match.winner === 2
+                    ? 'text-slate-500'
                     : 'text-slate-300'
-                }`}>
-                  <span className="truncate max-w-[190px]">
-                    {isTeam1Bye 
-                      ? 'BYE (Lolos)' 
-                      : (match.team1_ids.length > 0 ? getTeamNames(match.team1_ids) : 'Menunggu...')}
-                  </span>
-                  <span className="font-bold text-sm">
-                    {match.score1 !== null ? match.score1 : '-'}
+                  }`}>
+                  <div className="truncate max-w-[190px]">
+                    {isTeam1Bye ? (
+                      <span className="text-slate-400 italic">BYE (Lolos)</span>
+                    ) : (
+                      <TeamDisplay
+                        teamIds={match.team1_ids}
+                        isWinner={match.winner === 1}
+                        isLoser={match.winner === 2}
+                      />
+                    )}
+                  </div>
+                  <span className="font-bold text-sm flex-shrink-0 min-w-[24px] text-right">
+                    {match.set_scores ? match.set_scores.filter((s: any) => s.team1 > s.team2).length : (match.score1 !== null ? match.score1 : '-')}
                   </span>
                 </div>
 
                 {/* Team 2 Row */}
-                <div className={`flex items-center justify-between text-xs py-1 rounded px-1.5 ${
-                  match.winner === 2 
-                    ? 'bg-emerald-500/5 text-emerald-300 border border-emerald-500/10 font-bold' 
-                    : match.winner === 1 
-                    ? 'text-slate-500 line-through' 
+                <div className={`flex items-center justify-between text-xs py-1 rounded px-1.5 ${match.winner === 2
+                  ? 'bg-emerald-500/5 border border-emerald-500/10'
+                  : match.winner === 1
+                    ? 'text-slate-500'
                     : 'text-slate-300'
-                }`}>
-                  <span className="truncate max-w-[190px]">
-                    {isTeam2Bye 
-                      ? 'BYE (Lolos)' 
-                      : (match.team2_ids.length > 0 ? getTeamNames(match.team2_ids) : 'Menunggu...')}
-                  </span>
-                  <span className="font-bold text-sm">
-                    {match.score2 !== null ? match.score2 : '-'}
+                  }`}>
+                  <div className="truncate max-w-[190px]">
+                    {isTeam2Bye ? (
+                      <span className="text-slate-400 italic">BYE (Lolos)</span>
+                    ) : (
+                      <TeamDisplay
+                        teamIds={match.team2_ids}
+                        isWinner={match.winner === 2}
+                        isLoser={match.winner === 1}
+                      />
+                    )}
+                  </div>
+                  <span className="font-bold text-sm flex-shrink-0 min-w-[24px] text-right">
+                    {match.set_scores ? match.set_scores.filter((s: any) => s.team2 > s.team1).length : (match.score2 !== null ? match.score2 : '-')}
                   </span>
                 </div>
 
@@ -387,107 +464,140 @@ export const TournamentDetail: React.FC = () => {
             <div className="border-b border-dark-800 pb-3">
               <h3 className="font-bold text-lg text-white">Masukkan Skor Pertandingan</h3>
               <p className="text-xs text-slate-400 mt-0.5">Babak {selectedMatch.round} • Pertandingan {selectedMatch.match_index + 1}</p>
-            </div>
-
-            {/* Inputs */}
-            <div className="space-y-4 py-2">
-              {/* Team 1 Score Input */}
-              <div className="flex items-center justify-between gap-4 p-3 bg-dark-950/40 border border-dark-800 rounded-xl">
-                <span className="text-sm font-semibold truncate flex-1">{getTeamNames(selectedMatch.team1_ids)}</span>
-                <input
-                  type="number"
-                  value={score1}
-                  onChange={(e) => setScore1(e.target.value)}
-                  placeholder="0"
-                  min="0"
-                  max="50"
-                  className="w-16 glass-input py-1.5 text-center font-bold text-lg"
-                />
-              </div>
-
-              {/* Team 2 Score Input */}
-              <div className="flex items-center justify-between gap-4 p-3 bg-dark-950/40 border border-dark-800 rounded-xl">
-                <span className="text-sm font-semibold truncate flex-1">{getTeamNames(selectedMatch.team2_ids)}</span>
-                <input
-                  type="number"
-                  value={score2}
-                  onChange={(e) => setScore2(e.target.value)}
-                  placeholder="0"
-                  min="0"
-                  max="50"
-                  className="w-16 glass-input py-1.5 text-center font-bold text-lg"
-                />
-              </div>
-            </div>
-
-            {/* Substitution editor */}
-            <div className="space-y-3 pt-3 border-t border-dark-800/80">
-              <h4 className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                👥 Sesuaikan Formasi / Pergantian Pemain
-              </h4>
-              
-              <div className="space-y-3 text-xs bg-dark-950/20 p-3 rounded-xl border border-dark-800/40">
-                {/* Team 1 Players */}
-                <div className="space-y-1.5">
-                  <span className="font-bold text-[10px] text-brand-primary block uppercase">Formasi Tim 1:</span>
-                  <div className="grid grid-cols-2 gap-2">
-                    {selectedMatch.team1_ids.map((pId: string, idx: number) => (
-                      <select
-                        key={`team1-sub-${idx}`}
-                        value={pId}
-                        onChange={(e) => handleSwapPlayer(1, idx, e.target.value)}
-                        className="glass-input bg-dark-900 py-1 px-2 text-xs"
+              {/* Best-of-3 Set Inputs */}
+              <div className="space-y-3 py-2">
+                <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold uppercase tracking-wider px-1">
+                  <span>Set</span>
+                  <span className="flex gap-6">
+                    <span>{getTeamNames(selectedMatch.team1_ids)}</span>
+                    <span>{getTeamNames(selectedMatch.team2_ids)}</span>
+                  </span>
+                </div>
+                {sets.map((set, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between gap-3 p-2.5 bg-dark-950/40 border border-dark-800 rounded-xl"
+                  >
+                    <span className="text-xs font-bold text-slate-400 w-6">Set {idx + 1}</span>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number"
+                        value={set.t1}
+                        onChange={(e) => {
+                          const next = [...sets];
+                          next[idx] = { ...next[idx], t1: e.target.value };
+                          setSets(next);
+                        }}
+                        placeholder="0"
+                        min="0"
+                        max="50"
+                        className="w-20 glass-input py-1.5 text-center font-bold text-base"
+                      />
+                      <span className="text-slate-600 font-bold text-lg">:</span>
+                      <input
+                        type="number"
+                        value={set.t2}
+                        onChange={(e) => {
+                          const next = [...sets];
+                          next[idx] = { ...next[idx], t2: e.target.value };
+                          setSets(next);
+                        }}
+                        placeholder="0"
+                        min="0"
+                        max="50"
+                        className="w-20 glass-input py-1.5 text-center font-bold text-base"
+                      />
+                    </div>
+                    {idx > 0 && (
+                      <button
+                        onClick={() => setSets(sets.filter((_, i) => i !== idx))}
+                        className="text-[10px] text-rose-400 hover:text-rose-300 ml-1"
                       >
-                        {players.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
-                    ))}
+                        Hapus
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {sets.length < 3 && (
+                  <button
+                    onClick={() => setSets([...sets, { t1: '', t2: '' }])}
+                    className="text-xs text-brand-primary hover:text-brand-secondary transition-colors"
+                  >
+                    + Tambah Set
+                  </button>
+                )}
+                <p className="text-[10px] text-slate-500 italic">Best of 3 — pemenang ditentukan dari jumlah set yang dimenangkan</p>
+              </div>
+
+              {/* Substitution editor */}
+              <div className="space-y-3 pt-3 border-t border-dark-800/80">
+                <h4 className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                  👥 Sesuaikan Formasi / Pergantian Pemain
+                </h4>
+
+                <div className="space-y-3 text-xs bg-dark-950/20 p-3 rounded-xl border border-dark-800/40">
+                  {/* Team 1 Players */}
+                  <div className="space-y-1.5">
+                    <span className="font-bold text-[10px] text-brand-primary block uppercase">Formasi Tim 1:</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {selectedMatch.team1_ids.map((pId: string, idx: number) => (
+                        <select
+                          key={`team1-sub-${idx}`}
+                          value={pId}
+                          onChange={(e) => handleSwapPlayer(1, idx, e.target.value)}
+                          className="glass-input bg-dark-900 py-1 px-2 text-xs"
+                        >
+                          {players.map((p) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Team 2 Players */}
+                  <div className="space-y-1.5">
+                    <span className="font-bold text-[10px] text-brand-secondary block uppercase">Formasi Tim 2:</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {selectedMatch.team2_ids.map((pId: string, idx: number) => (
+                        <select
+                          key={`team2-sub-${idx}`}
+                          value={pId}
+                          onChange={(e) => handleSwapPlayer(2, idx, e.target.value)}
+                          className="glass-input bg-dark-900 py-1 px-2 text-xs"
+                        >
+                          {players.map((p) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      ))}
+                    </div>
                   </div>
                 </div>
-
-                {/* Team 2 Players */}
-                <div className="space-y-1.5">
-                  <span className="font-bold text-[10px] text-brand-secondary block uppercase">Formasi Tim 2:</span>
-                  <div className="grid grid-cols-2 gap-2">
-                    {selectedMatch.team2_ids.map((pId: string, idx: number) => (
-                      <select
-                        key={`team2-sub-${idx}`}
-                        value={pId}
-                        onChange={(e) => handleSwapPlayer(2, idx, e.target.value)}
-                        className="glass-input bg-dark-900 py-1 px-2 text-xs"
-                      >
-                        {players.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
-                    ))}
-                  </div>
-                </div>
               </div>
-            </div>
 
-            {/* Error Message */}
-            {modalError && (
-              <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-xl text-center">
-                {modalError}
-              </p>
-            )}
+              {/* Error Message */}
+              {modalError && (
+                <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-xl text-center">
+                  {modalError}
+                </p>
+              )}
 
-            {/* Actions */}
-            <div className="flex items-center gap-3 justify-end pt-3 border-t border-dark-800">
-              <button
-                onClick={() => setSelectedMatch(null)}
-                className="glass-btn px-4 py-2.5 rounded-xl text-xs"
-              >
-                Batal
-              </button>
-              <button
-                onClick={handleSaveScore}
-                className="px-5 py-2.5 rounded-xl gradient-btn text-xs font-bold"
-              >
-                Simpan Skor
-              </button>
+              {/* Actions */}
+              <div className="flex items-center gap-3 justify-end pt-3 border-t border-dark-800">
+                <button
+                  onClick={() => setSelectedMatch(null)}
+                  className="glass-btn px-4 py-2.5 rounded-xl text-xs"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleSaveScore}
+                  className="px-5 py-2.5 rounded-xl gradient-btn text-xs font-bold"
+                >
+                  Simpan Skor
+                </button>
+              </div>
             </div>
           </div>
         </div>

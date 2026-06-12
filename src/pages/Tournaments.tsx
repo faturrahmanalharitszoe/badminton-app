@@ -68,18 +68,16 @@ export const Tournaments: React.FC = () => {
   const generateRandomPairings = () => {
     const shuffled = [...selectedPlayerIds].sort(() => Math.random() - 0.5);
     const newTeams: string[][] = [];
-    
+
     if (format === 'double') {
       for (let i = 0; i < shuffled.length; i += 2) {
         if (i + 1 < shuffled.length) {
           newTeams.push([shuffled[i], shuffled[i + 1]]);
         } else {
-          // Odd player gets a double-up partner from all other selected players
-          const otherPlayers = selectedPlayerIds.filter((pId) => pId !== shuffled[i]);
-          const randomPartner = otherPlayers.length > 0 
-            ? otherPlayers[Math.floor(Math.random() * otherPlayers.length)] 
-            : 'ghost';
-          newTeams.push([shuffled[i], randomPartner]);
+          // Odd player gets a partner from already-paired players
+          // (they'll play twice; bracket layout ensures they won't face themselves)
+          const partnerIdx = Math.floor(Math.random() * (shuffled.length - 1));
+          newTeams.push([shuffled[i], shuffled[partnerIdx]]);
         }
       }
     } else {
@@ -113,12 +111,10 @@ export const Tournaments: React.FC = () => {
 
     while (start <= end) {
       if (start === end) {
-        // Odd player gets a double-up partner from all other selected players
-        const otherPlayers = selectedPlayerIds.filter((pId) => pId !== sortedSelected[start]);
-        const randomPartner = otherPlayers.length > 0 
-          ? otherPlayers[Math.floor(Math.random() * otherPlayers.length)] 
-          : 'ghost';
-        newTeams.push([sortedSelected[start], randomPartner]);
+        // Odd player gets a partner from already-paired players
+        // (they'll play twice; bracket layout ensures they won't face themselves)
+        const partnerIdx = start > 0 ? start - 1 : start + 1;
+        newTeams.push([sortedSelected[start], sortedSelected[Math.min(partnerIdx, sortedSelected.length - 1)]]);
         break;
       }
       // Pair strongest with weakest
@@ -341,15 +337,13 @@ export const Tournaments: React.FC = () => {
                       <button
                         key={player.id}
                         onClick={() => handleTogglePlayer(player.id)}
-                        className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border text-left transition-all ${
-                          isSelected
-                            ? 'bg-brand-primary/10 border-brand-primary/50 text-white font-medium shadow-md shadow-brand-primary/5'
-                            : 'bg-dark-900/40 border-dark-800/80 hover:border-dark-700 text-slate-400 hover:text-slate-200'
-                        }`}
+                        className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border text-left transition-all ${isSelected
+                          ? 'bg-brand-primary/10 border-brand-primary/50 text-white font-medium shadow-md shadow-brand-primary/5'
+                          : 'bg-dark-900/40 border-dark-800/80 hover:border-dark-700 text-slate-400 hover:text-slate-200'
+                          }`}
                       >
-                        <div className={`w-4 h-4 rounded flex items-center justify-center border ${
-                          isSelected ? 'border-brand-primary bg-brand-primary text-white' : 'border-slate-600'
-                        }`}>
+                        <div className={`w-4 h-4 rounded flex items-center justify-center border ${isSelected ? 'border-brand-primary bg-brand-primary text-white' : 'border-slate-600'
+                          }`}>
                           {isSelected && <span className="text-[10px] font-black">✓</span>}
                         </div>
                         <span className="truncate text-sm font-sans">{player.name}</span>
@@ -424,7 +418,7 @@ export const Tournaments: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  
+
                   {getUnassignedPlayers().length === 0 ? (
                     <div className="text-center py-8 text-xs text-slate-500">
                       Semua pemain sudah mendapatkan pasangan! Klik "Mulai Turnamen" untuk membuat bagan.
@@ -437,17 +431,16 @@ export const Tournaments: React.FC = () => {
                           <button
                             key={pId}
                             onClick={() => handleManualPairClick(pId)}
-                            className={`px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
-                              isBuffer
-                                ? 'bg-brand-primary text-white border-brand-primary shadow-lg shadow-brand-primary/25'
-                                : 'bg-dark-900 border-dark-800/80 hover:border-dark-700 text-slate-300'
-                            }`}
+                            className={`px-3 py-2 rounded-xl border text-xs font-medium transition-all ${isBuffer
+                              ? 'bg-brand-primary text-white border-brand-primary shadow-lg shadow-brand-primary/25'
+                              : 'bg-dark-900 border-dark-800/80 hover:border-dark-700 text-slate-300'
+                              }`}
                           >
                             {getPlayerName(pId)}
                           </button>
                         );
                       })}
-                      
+
                       {/* Double-Up Partner Trigger for last remaining player */}
                       {format === 'double' && getUnassignedPlayers().length === 1 && (
                         <div className="w-full space-y-3 pt-3 border-t border-dark-800/40">
@@ -481,7 +474,7 @@ export const Tournaments: React.FC = () => {
                   <h5 className="font-bold text-sm text-slate-300 border-b border-dark-800 pb-3">
                     Tim Terbentuk ({teams.length})
                   </h5>
-                  
+
                   {teams.length === 0 ? (
                     <div className="text-center py-12 text-xs text-slate-500 border border-dashed border-dark-800 rounded-xl">
                       Belum ada tim yang dibuat. Gunakan tombol otomatis di atas atau klik nama pemain di sebelah kiri untuk memasangkan secara manual.
@@ -574,19 +567,17 @@ export const Tournaments: React.FC = () => {
                 className="glass-card rounded-2xl p-6 flex flex-col justify-between gap-5 relative group overflow-hidden border border-dark-800"
               >
                 {/* Status indicator line */}
-                <div className={`absolute top-0 left-0 right-0 h-1 ${
-                  isCompleted 
-                    ? 'bg-gradient-to-r from-emerald-400 to-teal-400' 
-                    : 'bg-gradient-to-r from-brand-primary to-brand-secondary'
-                }`} />
+                <div className={`absolute top-0 left-0 right-0 h-1 ${isCompleted
+                  ? 'bg-gradient-to-r from-emerald-400 to-teal-400'
+                  : 'bg-gradient-to-r from-brand-primary to-brand-secondary'
+                  }`} />
 
                 <div className="space-y-3">
                   <div className="flex items-start justify-between">
-                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border tracking-wide uppercase ${
-                      isCompleted 
-                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
-                        : 'bg-brand-primary/10 border-brand-primary/20 text-brand-primary animate-pulse-subtle'
-                    }`}>
+                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border tracking-wide uppercase ${isCompleted
+                      ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                      : 'bg-brand-primary/10 border-brand-primary/20 text-brand-primary animate-pulse-subtle'
+                      }`}>
                       {tournament.status === 'completed' ? 'Selesai' : 'Berjalan'}
                     </span>
                     <button

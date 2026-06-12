@@ -16,6 +16,11 @@ export interface Tournament {
   created_at: string;
 }
 
+export interface SetScore {
+  team1: number;
+  team2: number;
+}
+
 export interface Match {
   id: string;
   tournament_id: string;
@@ -29,6 +34,7 @@ export interface Match {
   next_match_id: string | null;
   next_match_is_team2: boolean;
   created_at: string;
+  set_scores: SetScore[] | null;
 }
 
 // Check environment variables
@@ -43,6 +49,46 @@ export const hasSupabaseConfig =
 
 // Initialize Supabase if keys exist
 const supabase = hasSupabaseConfig ? createClient(supabaseUrl, supabaseAnonKey) : null;
+
+// ── Auto-detect set_scores column availability ──
+// The anon key cannot run DDL, so we probe once and cache the result.
+// If missing, localStorage bridge handles persistence until the column is added.
+let setScoresColumnExists = false;
+
+const probeSetScoresColumn = async () => {
+  if (!supabase) return;
+  try {
+    const { error } = await supabase
+      .from('matches')
+      .select('set_scores')
+      .limit(1);
+    if (error) {
+      const msg = (error.message || '').toLowerCase();
+      if (msg.includes('set_scores') || msg.includes('column') || msg.includes('schema cache')) {
+        setScoresColumnExists = false;
+        console.info(
+          '%c[Badminton App] set_scores column not found in Supabase.\n' +
+          'Run this SQL in your Supabase SQL Editor to enable cloud persistence:\n\n' +
+          'ALTER TABLE matches ADD COLUMN IF NOT EXISTS set_scores JSONB DEFAULT NULL;\n\n' +
+          'Until then, set_scores are saved in localStorage (browser only).',
+          'color: #f59e0b; font-weight: bold;'
+        );
+      } else {
+        setScoresColumnExists = false;
+      }
+    } else {
+      setScoresColumnExists = true;
+      console.info('%c[Badminton App] set_scores column detected ✓', 'color: #22c55e;');
+    }
+  } catch {
+    setScoresColumnExists = false;
+  }
+};
+
+// Run probe once at module load (fire-and-forget)
+if (supabase) {
+  probeSetScoresColumn();
+}
 
 // Demo/Mock Data Seeding
 const SEED_PLAYERS: Player[] = [
@@ -178,7 +224,8 @@ const localDb = {
     matchId: string,
     score1: number,
     score2: number,
-    winner: 1 | 2
+    winner: 1 | 2,
+    set_scores?: SetScore[]
   ): Promise<Match> => {
     initializeLocalStorage();
     const matches: Match[] = JSON.parse(localStorage.getItem('mabar_matches') || '[]');
@@ -188,6 +235,9 @@ const localDb = {
     matches[index].score1 = score1;
     matches[index].score2 = score2;
     matches[index].winner = winner;
+    if (set_scores) {
+      matches[index].set_scores = set_scores;
+    }
 
     localStorage.setItem('mabar_matches', JSON.stringify(matches));
     return matches[index];
@@ -316,7 +366,14 @@ export const db = {
         .order('round', { ascending: true })
         .order('match_index', { ascending: true });
       if (error) throw error;
-      return data || [];
+      // Restore set_scores from localStorage bridge if missing in DB
+      const bridgeData = JSON.parse(localStorage.getItem('mabar_set_scores_bridge') || '{}');
+      return (data || []).map((m: Match) => {
+        if (!m.set_scores && bridgeData[m.id]) {
+          m.set_scores = bridgeData[m.id];
+        }
+        return m;
+      });
     }
     return localDb.getMatches(tournamentId);
   },
@@ -324,7 +381,14 @@ export const db = {
     if (supabase) {
       const { data, error } = await supabase.from('matches').select('*');
       if (error) throw error;
-      return data || [];
+      // Restore set_scores from localStorage bridge if missing in DB
+      const bridgeData = JSON.parse(localStorage.getItem('mabar_set_scores_bridge') || '{}');
+      return (data || []).map((m: Match) => {
+        if (!m.set_scores && bridgeData[m.id]) {
+          m.set_scores = bridgeData[m.id];
+        }
+        return m;
+      });
     }
     return localDb.getAllMatches();
   },
@@ -345,19 +409,47 @@ export const db = {
     matchId: string,
     score1: number,
     score2: number,
-    winner: 1 | 2
+    winner: 1 | 2,
+    set_scores?: SetScore[]
   ): Promise<Match> => {
     if (supabase) {
+      // Send score data; if set_scores column doesn't exist, retry without it
+      const updatePayload: any = { score1, score2, winner };
+      if (set_scores) updatePayload.set_scores = set_scores;
       const { data, error } = await supabase
         .from('matches')
-        .update({ score1, score2, winner })
+        .update(updatePayload)
         .eq('id', matchId)
         .select()
         .single();
-      if (error) throw error;
+      if (error) {
+        // Column might not exist yet — retry without set_scores
+        const msg = (error.message || '').toLowerCase();
+        if (set_scores && (msg.includes('set_scores') || msg.includes('column') || msg.includes('schema cache'))) {
+          // Save set_scores in localStorage as bridge since Supabase column is missing
+          if (set_scores) {
+            const bridgeData = JSON.parse(localStorage.getItem('mabar_set_scores_bridge') || '{}');
+            bridgeData[matchId] = set_scores;
+            localStorage.setItem('mabar_set_scores_bridge', JSON.stringify(bridgeData));
+          }
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('matches')
+            .update({ score1, score2, winner })
+            .eq('id', matchId)
+            .select()
+            .single();
+          if (fallbackError) throw fallbackError;
+          // Attach set_scores from bridge so returned match has it
+          if (fallbackData && set_scores) {
+            fallbackData.set_scores = set_scores;
+          }
+          return fallbackData;
+        }
+        throw error;
+      }
       return data;
     }
-    return localDb.updateMatchScore(matchId, score1, score2, winner);
+    return localDb.updateMatchScore(matchId, score1, score2, winner, set_scores);
   },
   updateMatchTeams: async (
     matchId: string,

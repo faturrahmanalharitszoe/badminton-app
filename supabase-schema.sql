@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS matches (
     next_match_id UUID REFERENCES matches(id) ON DELETE SET NULL,
     next_match_is_team2 BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    set_scores JSONB DEFAULT NULL, -- Array of set scores: [{"team1":21,"team2":19}, ...]
     
     -- Ensure each match index in a tournament's round is unique
     CONSTRAINT unique_tournament_round_match UNIQUE (tournament_id, round, match_index)
@@ -52,3 +53,6 @@ CREATE INDEX IF NOT EXISTS idx_matches_next_match_id ON matches(next_match_id);
 alter publication supabase_realtime add table players;
 alter publication supabase_realtime add table tournaments;
 alter publication supabase_realtime add table matches;
+
+-- Migration: Add set_scores column to matches (run if table already exists)
+-- ALTER TABLE matches ADD COLUMN IF NOT EXISTS set_scores JSONB DEFAULT NULL;

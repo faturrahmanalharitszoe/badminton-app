@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import {
   usePlayers,
   useAddPlayer,
@@ -6,7 +7,7 @@ import {
   useDeletePlayer,
   useRankings
 } from '../hooks/useQueries';
-import { UserPlus, Edit2, Trash2, Check, X, ShieldAlert, Star } from 'lucide-react';
+import { UserPlus, Edit2, Trash2, Check, X, ShieldAlert, Star, ExternalLink } from 'lucide-react';
 import { getAvatarColor, getJomokAvatar } from '../lib/avatar';
 
 export const Players: React.FC = () => {
@@ -166,28 +167,27 @@ export const Players: React.FC = () => {
                 const isEditing = editingPlayerId === player.id;
                 const stats = getPlayerStats(player.id);
                 const winRatePercent = stats ? Math.round(stats.winRate * 100) : 0;
-                
+
                 // Color coding for win rates
-                const winRateColor = 
+                const winRateColor =
                   winRatePercent >= 65 ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' :
-                  winRatePercent >= 45 ? 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20' :
-                  stats && stats.matchesPlayed > 0 ? 'text-slate-400 bg-slate-500/10 border-slate-500/20' :
-                  'text-slate-500 bg-slate-800/30 border-dark-700/50';
+                    winRatePercent >= 45 ? 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20' :
+                      stats && stats.matchesPlayed > 0 ? 'text-slate-400 bg-slate-500/10 border-slate-500/20' :
+                        'text-slate-500 bg-slate-800/30 border-dark-700/50';
 
                 return (
                   <div
                     key={player.id}
-                    className={`glass-card p-5 rounded-2xl flex flex-col justify-between gap-4 ${
-                      isEditing ? 'border-brand-primary bg-brand-primary/5' : ''
-                    }`}
+                    className={`glass-card p-5 rounded-2xl flex flex-col justify-between gap-4 ${isEditing ? 'border-brand-primary bg-brand-primary/5' : ''
+                      }`}
                   >
                     <div className="flex items-start gap-4">
                       {/* Avatar */}
                       <div className={`w-12 h-12 rounded-xl bg-gradient-to-tr ${getAvatarColor(player.name)} flex items-center justify-center shadow-lg shadow-black/25 flex-shrink-0 text-white font-bold text-lg tracking-wide uppercase relative overflow-hidden`}>
                         <span className="z-0">{player.name.substring(0, 2)}</span>
-                        <img 
-                          src={getJomokAvatar(player.id)} 
-                          alt={player.name} 
+                        <img
+                          src={getJomokAvatar(player.id)}
+                          alt={player.name}
                           className="absolute inset-0 w-full h-full object-cover z-10 transition-transform duration-300 hover:scale-110"
                           onError={(e) => {
                             (e.target as HTMLImageElement).remove();
@@ -220,9 +220,15 @@ export const Players: React.FC = () => {
                           </div>
                         ) : (
                           <div>
-                            <h4 className="font-bold text-base text-white truncate font-sans tracking-wide">
-                              {player.name}
-                            </h4>
+                            <Link
+                              to={`/players/${player.id}`}
+                              className="group flex items-center gap-1.5"
+                            >
+                              <h4 className="font-bold text-base text-white truncate font-sans tracking-wide group-hover:text-brand-primary transition-colors">
+                                {player.name}
+                              </h4>
+                              <ExternalLink className="w-3 h-3 text-slate-500 group-hover:text-brand-primary opacity-0 group-hover:opacity-100 transition-all" />
+                            </Link>
                             <p className="text-[10px] text-slate-500 mt-0.5">
                               Bergabung sejak {new Date(player.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
                             </p>

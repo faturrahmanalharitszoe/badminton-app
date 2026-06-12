@@ -239,11 +239,27 @@ export const Dashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Scores display */}
-                    <div className="flex items-center gap-2.5 bg-dark-950/80 border border-dark-800 px-3 py-1.5 rounded-lg text-sm font-black text-slate-200">
-                      <span className={match.winner === 1 ? 'text-emerald-400' : ''}>{match.score1}</span>
-                      <span className="text-slate-600">:</span>
-                      <span className={match.winner === 2 ? 'text-emerald-400' : ''}>{match.score2}</span>
+                    {/* Scores display — per-set breakdown */}
+                    <div className="flex items-center gap-1.5 bg-dark-950/80 border border-dark-800 px-2.5 py-1.5 rounded-lg">
+                      {match.set_scores && match.set_scores.length > 0 ? (
+                        match.set_scores.map((s: any, idx: number) => (
+                          <span
+                            key={idx}
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${(match.winner === 1 && s.team1 > s.team2) || (match.winner === 2 && s.team2 > s.team1)
+                                ? 'bg-emerald-500/15 text-emerald-300'
+                                : 'bg-rose-500/15 text-rose-300'
+                              }`}
+                          >
+                            {s.team1}-{s.team2}
+                          </span>
+                        ))
+                      ) : (
+                        <span className={`text-sm font-black ${match.winner === 1 ? 'text-emerald-400' : match.winner === 2 ? 'text-rose-400' : 'text-slate-200'}`}>
+                          <span className={match.winner === 1 ? 'text-emerald-400' : ''}>{match.score1}</span>
+                          <span className="text-slate-600 mx-1">:</span>
+                          <span className={match.winner === 2 ? 'text-emerald-400' : ''}>{match.score2}</span>
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -276,8 +292,8 @@ export const Dashboard: React.FC = () => {
                     <div key={pair.pairKey} className="flex items-center justify-between gap-4 text-xs">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className={`w-5 h-5 flex items-center justify-center rounded-full font-black ${index === 0 ? 'bg-amber-400/10 text-amber-400 border border-amber-400/20' :
-                            index === 1 ? 'bg-slate-300/10 text-slate-300 border border-slate-300/20' :
-                              'bg-amber-700/10 text-amber-700 border border-amber-700/20'
+                          index === 1 ? 'bg-slate-300/10 text-slate-300 border border-slate-300/20' :
+                            'bg-amber-700/10 text-amber-700 border border-amber-700/20'
                           }`}>
                           {index + 1}
                         </span>
@@ -312,17 +328,17 @@ export const Dashboard: React.FC = () => {
                     <div key={ind.playerId} className="flex items-center justify-between gap-4 text-xs">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className={`w-5 h-5 flex items-center justify-center rounded-full font-black ${index === 0 ? 'bg-amber-400/10 text-amber-400 border border-amber-400/20' :
-                            index === 1 ? 'bg-slate-300/10 text-slate-300 border border-slate-300/20' :
-                              'bg-amber-700/10 text-amber-700 border border-amber-700/20'
+                          index === 1 ? 'bg-slate-300/10 text-slate-300 border border-slate-300/20' :
+                            'bg-amber-700/10 text-amber-700 border border-amber-700/20'
                           }`}>
                           {index + 1}
                         </span>
                         {/* Avatar */}
                         <div className={`w-6 h-6 rounded-md bg-gradient-to-tr ${getAvatarColor(ind.name)} flex items-center justify-center shadow-sm flex-shrink-0 text-white font-bold text-[8px] uppercase relative overflow-hidden`}>
                           <span className="z-0">{ind.name.substring(0, 2)}</span>
-                          <img 
-                            src={getJomokAvatar(ind.playerId)} 
-                            alt={ind.name} 
+                          <img
+                            src={getJomokAvatar(ind.playerId)}
+                            alt={ind.name}
                             className="absolute inset-0 w-full h-full object-cover z-10 transition-transform duration-300 hover:scale-110"
                             onError={(e) => {
                               (e.target as HTMLImageElement).remove();
