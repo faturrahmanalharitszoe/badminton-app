@@ -407,13 +407,20 @@ const expandBracket = async (matches: Match[], tournamentId: string, newTeamIds:
     lastR1.winner = 1;
   }
 
+  // Insert new matches in dependency order (highest round first) so each match's
+  // next_match_id parent already exists when its FK constraint is checked.
+  for (let r = newRounds; r >= 1; r--) {
+    const roundCreates = toCreate.filter((c) => c.round === r);
+    if (roundCreates.length) await db.createMatches(roundCreates);
+  }
+
+  // Now rewire the old final to feed the new final (the new final already exists).
   for (const m of toUpdate) {
     await db.updateMatchFields(m.id, {
       next_match_id: m.next_match_id,
       next_match_is_team2: m.next_match_is_team2,
     });
   }
-  if (toCreate.length) await db.createMatches(toCreate);
 
   // Walk the new team up to the final through its (empty) subtree byes.
   await propagateNewTeamUpward(tournamentId, newRounds);
