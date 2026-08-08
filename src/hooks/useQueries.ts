@@ -300,14 +300,12 @@ export const useAddTeamToTournament = () => {
     mutationFn: ({
       tournamentId,
       matchId,
-      emptySlot,
       teamIds,
     }: {
       tournamentId: string;
-      matchId: string;
-      emptySlot: 'team1' | 'team2';
+      matchId: string | null;
       teamIds: string[];
-    }) => db.applyTeamFill(tournamentId, matchId, emptySlot, teamIds),
+    }) => db.addTeamToTournament(tournamentId, matchId, teamIds),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.matches(variables.tournamentId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.tournament(variables.tournamentId) });

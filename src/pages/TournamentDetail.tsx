@@ -38,6 +38,7 @@ export const TournamentDetail: React.FC = () => {
   const [modalError, setModalError] = useState<string | null>(null);
 
   // Fill-bye (add new team) modal states
+  const [fillOpen, setFillOpen] = useState(false);
   const [fillMatch, setFillMatch] = useState<Match | null>(null);
   const [fillSlot, setFillSlot] = useState<'team1' | 'team2'>('team1');
   const [fillSelectedIds, setFillSelectedIds] = useState<string[]>([]);
@@ -63,24 +64,14 @@ export const TournamentDetail: React.FC = () => {
     return teamIds.map((id) => getPlayerName(id)).join(' & ');
   }, [getPlayerName]);
 
-  // Which slot of a match is empty (a BYE)? Returns null if the match has 0 or 2 teams.
-  const getEmptyByeSlot = useCallback((match: Match): 'team1' | 'team2' | null => {
+  // First empty slot of a match (fully-empty matches are fillable too).
+  const getEmptySlot = useCallback((match: Match): 'team1' | 'team2' | null => {
     const t1Empty = !match.team1_ids || match.team1_ids.length === 0;
     const t2Empty = !match.team2_ids || match.team2_ids.length === 0;
-    if (t1Empty && !t2Empty) return 'team1';
-    if (t2Empty && !t1Empty) return 'team2';
+    if (t1Empty) return 'team1';
+    if (t2Empty) return 'team2';
     return null;
   }, []);
-
-  // A BYE slot is safe to fill only if the auto-advanced team hasn't played yet.
-  const isByeSafe = useCallback((match: Match) => {
-    if (match.round !== 1 || getEmptyByeSlot(match) === null) return false;
-    if (match.next_match_id) {
-      const parent = matches.find((p) => p.id === match.next_match_id);
-      if (parent && (parent.winner !== null || parent.score1 !== null || parent.score2 !== null)) return false;
-    }
-    return true;
-  }, [matches, getEmptyByeSlot]);
 
   // Player ids already participating in this tournament (so we can't duplicate them).
   const tournamentPlayerIds = useMemo(() => {
@@ -93,22 +84,23 @@ export const TournamentDetail: React.FC = () => {
   }, [matches]);
 
   const handleOpenFillModal = (match: Match) => {
-    const slot = getEmptyByeSlot(match);
+    const slot = getEmptySlot(match);
     if (!slot) return;
     setFillMatch(match);
     setFillSlot(slot);
     setFillSelectedIds([]);
     setFillNewPlayerName('');
     setFillError(null);
+    setFillOpen(true);
   };
 
   const handleAddTeamButton = () => {
-    const available = matches.filter((m) => isByeSafe(m));
-    if (available.length === 0) {
-      alert('Tidak ada slot BYE yang tersedia untuk menambah tim baru.');
-      return;
-    }
-    handleOpenFillModal(available[0]);
+    setFillMatch(null);
+    setFillSlot('team1');
+    setFillSelectedIds([]);
+    setFillNewPlayerName('');
+    setFillError(null);
+    setFillOpen(true);
   };
 
   const toggleFillPlayer = (pId: string) => {
@@ -145,24 +137,36 @@ export const TournamentDetail: React.FC = () => {
   };
 
   const handleSubmitFill = async () => {
-    if (!fillMatch) return;
     const needed = tournament?.format === 'double' ? 2 : 1;
-    if (fillSelectedIds.length !== needed) {
+    let teamIds = [...fillSelectedIds];
+    if (tournament?.format === 'double' && teamIds.length === 1) {
+      const available = players.filter((p) => !tournamentPlayerIds.has(p.id) && !teamIds.includes(p.id));
+      if (available.length === 0) {
+        setFillError('Tidak ada pemain lain tersedia untuk dijadikan partner. Pilih 2 pemain secara manual.');
+        return;
+      }
+      const partner = available[Math.floor(Math.random() * available.length)];
+      teamIds.push(partner.id);
+    }
+    if (teamIds.length !== needed) {
       setFillError(tournament?.format === 'double' ? 'Pilih 2 pemain untuk membentuk tim ganda.' : 'Pilih 1 pemain untuk tim tunggal.');
       return;
     }
     try {
-      await addTeamMutation.mutateAsync({
+      const result = await addTeamMutation.mutateAsync({
         tournamentId,
-        matchId: fillMatch.id,
-        emptySlot: fillSlot,
-        teamIds: fillSelectedIds,
+        matchId: fillMatch ? fillMatch.id : null,
+        teamIds,
       });
+      setFillOpen(false);
       setFillMatch(null);
       setFillSelectedIds([]);
       setFillError(null);
+      if (result.expanded) {
+        alert('Bagan diperluas: tim baru ditempatkan di babak tambahan.');
+      }
     } catch (err: any) {
-      setFillError(err.message || 'Gagal menambahkan tim');
+      setFillError(err.message || 'Gagal menambahkan pemain');
     }
   };
 
@@ -465,10 +469,10 @@ export const TournamentDetail: React.FC = () => {
               <button
                 onClick={handleAddTeamButton}
                 className="px-4 py-2.5 rounded-xl gradient-btn flex items-center gap-2 text-xs font-bold"
-                title="Tambahkan tim/pemain baru ke turnamen yang sedang berjalan"
+                title="Tambahkan pemain baru ke turnamen yang sedang berjalan"
               >
                 <Users className="w-4 h-4" />
-                <span>Tambah Tim</span>
+                <span>Tambah Pemain</span>
               </button>
               <button
                 onClick={handleCloseTournament}
@@ -579,7 +583,7 @@ export const TournamentDetail: React.FC = () => {
             const isTeam1Bye = match.round === 1 && match.team1_ids.length === 0 && match.team2_ids.length > 0;
             const isTeam2Bye = match.round === 1 && match.team2_ids.length === 0 && match.team1_ids.length > 0;
             const hasTeams = match.team1_ids.length > 0 && match.team2_ids.length > 0;
-            const byeSlot = getEmptyByeSlot(match);
+            const byeSlot = getEmptySlot(match);
             const isBye = byeSlot !== null;
             const isActive = tournament.status === 'active';
 
@@ -824,8 +828,8 @@ export const TournamentDetail: React.FC = () => {
         </div>
       )}
 
-      {/* Fill-Bye / Add New Team Modal */}
-      {fillMatch && (
+      {/* Fill-Bye / Add New Player Modal */}
+      {fillOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="glass-panel max-w-md w-full p-6 rounded-2xl border border-dark-800 space-y-5 animate-scale-in">
             {/* Header */}
@@ -833,28 +837,41 @@ export const TournamentDetail: React.FC = () => {
               <div>
                 <h3 className="font-bold text-lg text-white flex items-center gap-2">
                   <Users className="w-4 h-4 text-brand-secondary" />
-                  Tambah Tim Baru
+                  Tambah Pemain
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Babak {fillMatch.round} • Pertandingan {fillMatch.match_index + 1}
-                  {fillSlot === 'team1' ? ' • Slot Tim 1' : ' • Slot Tim 2'}
+                  {fillMatch ? (
+                    <>Babak {fillMatch.round} • Pertandingan {fillMatch.match_index + 1}
+                      {fillSlot === 'team1' ? ' • Slot Tim 1' : ' • Slot Tim 2'}</>
+                  ) : (
+                    'Posisi otomatis • Bagan diperluas bila penuh'
+                  )}
                 </p>
               </div>
               <button
-                onClick={() => setFillMatch(null)}
+                onClick={() => setFillOpen(false)}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-dark-800 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Opponent already waiting */}
-            <div className="p-3 bg-dark-950/40 border border-dark-800 rounded-xl text-xs">
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Lawan (sudah terisi)</span>
-              <span className="text-slate-200 font-medium">
-                {fillSlot === 'team1' ? getTeamNames(fillMatch.team2_ids) : getTeamNames(fillMatch.team1_ids)}
-              </span>
-            </div>
+            {/* Opponent already waiting (only when a specific slot was chosen) */}
+            {fillMatch && (
+              <div className="p-3 bg-dark-950/40 border border-dark-800 rounded-xl text-xs">
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Lawan (sudah terisi)</span>
+                <span className="text-slate-200 font-medium">
+                  {fillSlot === 'team1' ? getTeamNames(fillMatch.team2_ids) : getTeamNames(fillMatch.team1_ids)}
+                </span>
+              </div>
+            )}
+
+            {/* Doubles partner note */}
+            {tournament?.format === 'double' && (
+              <div className="p-3 bg-brand-primary/5 border border-brand-primary/20 rounded-xl text-xs text-slate-300">
+                Pilih 1 pemain, partner akan diacak otomatis dari pemain yang belum ikut. Atau pilih 2 pemain untuk tim lengkap.
+              </div>
+            )}
 
             {/* Quick-create new player */}
             <div className="space-y-2">
@@ -883,7 +900,7 @@ export const TournamentDetail: React.FC = () => {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                  Pilih {tournament?.format === 'double' ? '2 pemain' : '1 pemain'}
+                  Pilih {tournament?.format === 'double' ? '1–2 pemain' : '1 pemain'}
                 </span>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${fillSelectedIds.length === (tournament?.format === 'double' ? 2 : 1)
                   ? 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary'
@@ -932,7 +949,7 @@ export const TournamentDetail: React.FC = () => {
             {/* Actions */}
             <div className="flex items-center gap-3 justify-end pt-2 border-t border-dark-800">
               <button
-                onClick={() => setFillMatch(null)}
+                onClick={() => setFillOpen(false)}
                 className="glass-btn px-4 py-2.5 rounded-xl text-xs"
               >
                 Batal

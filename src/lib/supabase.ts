@@ -315,6 +315,161 @@ const prepareTeamFill = (
   return toUpdate;
 };
 
+// First empty slot of a match ('team1' wins ties, so fully-empty matches are fillable too).
+const getEmptySlot = (m: Match): 'team1' | 'team2' | null => {
+  if (!m.team1_ids || m.team1_ids.length === 0) return 'team1';
+  if (!m.team2_ids || m.team2_ids.length === 0) return 'team2';
+  return null;
+};
+
+// A round-1 slot that can still receive a new team (parent hasn't been played yet).
+const isSafeFillableSlot = (matches: Match[], m: Match): boolean => {
+  if (m.round !== 1 || getEmptySlot(m) === null) return false;
+  if (m.next_match_id) {
+    const parent = matches.find((p) => p.id === m.next_match_id);
+    if (parent && (parent.winner !== null || parent.score1 !== null || parent.score2 !== null)) return false;
+  }
+  return true;
+};
+
+// Expands a full bracket (exact power-of-2 team count) by one round so a late team
+// can join, WITHOUT moving/shuffling any existing matches. Existing matches keep
+// their teams; only the old final gets rewired to feed a new final.
+const expandBracket = async (matches: Match[], tournamentId: string, newTeamIds: string[]): Promise<void> => {
+  const byKey = new Map<string, Match>(matches.map((m) => [`${m.round}_${m.match_index}`, m]));
+  const oldRounds = Math.max(...matches.map((m) => m.round), 1);
+  const oldTeamCount = Math.pow(2, oldRounds);
+  const newRounds = Math.ceil(Math.log2(oldTeamCount + 1));
+  if (newRounds <= oldRounds) throw new Error('Bagan tidak dapat diperluas');
+
+  // Pre-generate ids for the new matches.
+  const idMap = new Map<string, string>();
+  for (let r = 1; r <= newRounds; r++) {
+    const cnt = Math.pow(2, newRounds - r);
+    for (let m = 0; m < cnt; m++) {
+      const key = `${r}_${m}`;
+      if (!byKey.has(key)) idMap.set(key, crypto.randomUUID());
+    }
+  }
+
+  const toCreate: any[] = [];
+  const toUpdate: Match[] = [];
+
+  for (let r = 1; r <= newRounds; r++) {
+    const cnt = Math.pow(2, newRounds - r);
+    for (let m = 0; m < cnt; m++) {
+      const key = `${r}_${m}`;
+
+      let nextMatchId: string | null = null;
+      let nextMatchIsTeam2 = false;
+      if (r < newRounds) {
+        const parentKey = `${r + 1}_${Math.floor(m / 2)}`;
+        const parent = byKey.get(parentKey);
+        nextMatchId = parent ? parent.id : idMap.get(parentKey) || null;
+        nextMatchIsTeam2 = m % 2 !== 0;
+      }
+
+      const existing = byKey.get(key);
+      if (existing) {
+        // Only the old final gets re-pointed to the new final.
+        if (existing.next_match_id !== nextMatchId || existing.next_match_is_team2 !== nextMatchIsTeam2) {
+          existing.next_match_id = nextMatchId;
+          existing.next_match_is_team2 = nextMatchIsTeam2;
+          toUpdate.push(existing);
+        }
+        continue;
+      }
+
+      toCreate.push({
+        id: idMap.get(key)!,
+        tournament_id: tournamentId,
+        round: r,
+        match_index: m,
+        team1_ids: [],
+        team2_ids: [],
+        score1: null,
+        score2: null,
+        winner: null,
+        next_match_id: nextMatchId,
+        next_match_is_team2: nextMatchIsTeam2,
+        created_at: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Place the new team in the LAST round-1 match (opposite side of the old bracket).
+  const lastR1Key = `1_${Math.pow(2, newRounds - 1) - 1}`;
+  const lastR1 = toCreate.find((c) => `${c.round}_${c.match_index}` === lastR1Key);
+  if (lastR1) {
+    lastR1.team1_ids = [...newTeamIds];
+    lastR1.score1 = 0;
+    lastR1.score2 = 0;
+    lastR1.winner = 1;
+  }
+
+  for (const m of toUpdate) {
+    await db.updateMatchFields(m.id, {
+      next_match_id: m.next_match_id,
+      next_match_is_team2: m.next_match_is_team2,
+    });
+  }
+  if (toCreate.length) await db.createMatches(toCreate);
+
+  // Walk the new team up to the final through its (empty) subtree byes.
+  await propagateNewTeamUpward(tournamentId, newRounds);
+};
+
+// Walks the newly-added team up from its round-1 slot to the new final, marking
+// each intermediate match as a bye (the team advances) and leaving the final
+// waiting for its real opponent.
+const propagateNewTeamUpward = async (tournamentId: string, newRounds: number): Promise<void> => {
+  const all = await db.getMatches(tournamentId);
+  const byKey = new Map<string, Match>(all.map((m) => [`${m.round}_${m.match_index}`, m]));
+
+  let r = 1;
+  let m = Math.pow(2, newRounds - 1) - 1; // last round-1 match
+  let teamSlot: 'team1' | 'team2' = 'team1';
+
+  while (r < newRounds) {
+    const current = byKey.get(`${r}_${m}`);
+    if (!current) break;
+    const team = current[teamSlot === 'team1' ? 'team1_ids' : 'team2_ids'];
+    if (!team || team.length === 0) break;
+
+    const nextMatch = current.next_match_id
+      ? byKey.get(`${r + 1}_${Math.floor(m / 2)}`) || all.find((x) => x.id === current.next_match_id)
+      : null;
+    if (!nextMatch) break;
+
+    const nextSlot: 'team1' | 'team2' = current.next_match_is_team2 ? 'team2' : 'team1';
+    nextMatch[nextSlot === 'team1' ? 'team1_ids' : 'team2_ids'] = [...team];
+
+    if (r + 1 < newRounds) {
+      // Intermediate match → auto-bye so the team keeps advancing.
+      nextMatch.winner = nextSlot === 'team1' ? 1 : 2;
+      nextMatch.score1 = 0;
+      nextMatch.score2 = 0;
+    } else {
+      // The new final → team is placed but must wait for its opponent.
+      nextMatch.winner = null;
+      nextMatch.score1 = null;
+      nextMatch.score2 = null;
+    }
+
+    await db.updateMatchFields(nextMatch.id, {
+      team1_ids: nextMatch.team1_ids,
+      team2_ids: nextMatch.team2_ids,
+      winner: nextMatch.winner,
+      score1: nextMatch.score1,
+      score2: nextMatch.score2,
+    });
+
+    r++;
+    m = Math.floor(m / 2);
+    teamSlot = nextSlot;
+  }
+};
+
 // Unified Database API
 export const db = {
   // Players
@@ -579,23 +734,52 @@ export const db = {
     }
     return localDb.updateMatchFields(matchId, fields);
   },
-  applyTeamFill: async (
+  addTeamToTournament: async (
     tournamentId: string,
-    matchId: string,
-    emptySlot: 'team1' | 'team2',
+    matchId: string | null,
     newTeamIds: string[]
-  ): Promise<void> => {
+  ): Promise<{ expanded: boolean }> => {
     const matches = await db.getMatches(tournamentId);
-    const toUpdate = prepareTeamFill(matches, matchId, emptySlot, newTeamIds);
-    for (const m of toUpdate) {
-      await db.updateMatchFields(m.id, {
-        team1_ids: m.team1_ids,
-        team2_ids: m.team2_ids,
-        winner: m.winner,
-        score1: m.score1,
-        score2: m.score2,
-        set_scores: m.set_scores,
-      });
+
+    // Explicit target (clicked a specific slot).
+    if (matchId) {
+      const target = matches.find((m) => m.id === matchId);
+      const slot = target ? getEmptySlot(target) : null;
+      if (!target || !slot) throw new Error('Slot pertandingan sudah terisi atau tidak ditemukan');
+      const toUpdate = prepareTeamFill(matches, matchId, slot, newTeamIds);
+      for (const m of toUpdate) {
+        await db.updateMatchFields(m.id, {
+          team1_ids: m.team1_ids,
+          team2_ids: m.team2_ids,
+          winner: m.winner,
+          score1: m.score1,
+          score2: m.score2,
+          set_scores: m.set_scores,
+        });
+      }
+      return { expanded: false };
     }
+
+    // Auto-find the first available slot.
+    const fillable = matches.find((m) => isSafeFillableSlot(matches, m));
+    if (fillable) {
+      const slot = getEmptySlot(fillable)!;
+      const toUpdate = prepareTeamFill(matches, fillable.id, slot, newTeamIds);
+      for (const m of toUpdate) {
+        await db.updateMatchFields(m.id, {
+          team1_ids: m.team1_ids,
+          team2_ids: m.team2_ids,
+          winner: m.winner,
+          score1: m.score1,
+          score2: m.score2,
+          set_scores: m.set_scores,
+        });
+      }
+      return { expanded: false };
+    }
+
+    // No room left → expand the bracket without touching existing matches.
+    await expandBracket(matches, tournamentId, newTeamIds);
+    return { expanded: true };
   },
 };
