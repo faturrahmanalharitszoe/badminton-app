@@ -19,7 +19,8 @@ import {
   CheckCircle,
   HelpCircle,
   Command,
-  ListOrdered
+  ListOrdered,
+  Lock
 } from 'lucide-react';
 
 export const Tournaments: React.FC = () => {
@@ -713,7 +714,7 @@ export const Tournaments: React.FC = () => {
                   </div>
                 </div>
 
-                {isCompleted && (
+                {isCompleted && tournament.winner_team_ids && (
                   <div className="bg-emerald-500/5 border border-emerald-500/15 p-3 rounded-xl flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
                       🏆
@@ -721,6 +722,18 @@ export const Tournaments: React.FC = () => {
                     <div className="min-w-0">
                       <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Pemenang Turnamen</p>
                       <p className="text-xs font-bold text-slate-200 truncate">{winnerNames}</p>
+                    </div>
+                  </div>
+                )}
+
+                {isCompleted && !tournament.winner_team_ids && (
+                  <div className="bg-amber-500/5 border border-amber-500/15 p-3 rounded-xl flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400">
+                      <Lock className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] text-amber-400 font-bold uppercase tracking-wider">Ditutup Lebih Awal</p>
+                      <p className="text-xs text-slate-300 truncate">Sisa pertandingan tidak dimainkan.</p>
                     </div>
                   </div>
                 )}

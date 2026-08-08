@@ -7,9 +7,10 @@ import {
   usePlayers,
   useAddTeamToTournament,
   useDeleteTournament,
-  useAddPlayer
+  useAddPlayer,
+  useSetTournamentStatus
 } from '../hooks/useQueries';
-import { Trophy, ArrowLeft, Edit3, Calendar, Award, Info, AlertTriangle, Users, Trash2, UserPlus, X } from 'lucide-react';
+import { Trophy, ArrowLeft, Edit3, Calendar, Award, Info, AlertTriangle, Users, Trash2, UserPlus, X, Lock, Unlock } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useQueryClient } from '@tanstack/react-query';
 import { db } from '../lib/supabase';
@@ -27,6 +28,7 @@ export const TournamentDetail: React.FC = () => {
   const addTeamMutation = useAddTeamToTournament();
   const deleteTournamentMutation = useDeleteTournament();
   const addPlayerMutation = useAddPlayer();
+  const setStatusMutation = useSetTournamentStatus();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -172,6 +174,28 @@ export const TournamentDetail: React.FC = () => {
         navigate('/tournaments');
       } catch (err: any) {
         alert(err.message || 'Gagal menghapus turnamen');
+      }
+    }
+  };
+
+  const handleCloseTournament = async () => {
+    if (!tournament) return;
+    if (window.confirm(`Tutup turnamen "${tournament.name}" sekarang? Pertandingan yang sudah dimainkan tetap dihitung, tetapi sisa pertandingan tidak akan dimainkan dan tidak ada juara yang ditentukan.`)) {
+      try {
+        await setStatusMutation.mutateAsync({ id: tournament.id, status: 'completed' });
+      } catch (err: any) {
+        alert(err.message || 'Gagal menutup turnamen');
+      }
+    }
+  };
+
+  const handleReopenTournament = async () => {
+    if (!tournament) return;
+    if (window.confirm(`Buka kembali turnamen "${tournament.name}"? Anda bisa melanjutkan pertandingan yang tersisa.`)) {
+      try {
+        await setStatusMutation.mutateAsync({ id: tournament.id, status: 'active' });
+      } catch (err: any) {
+        alert(err.message || 'Gagal membuka kembali turnamen');
       }
     }
   };
@@ -435,17 +459,9 @@ export const TournamentDetail: React.FC = () => {
           </div>
         </div>
 
-        {tournament.status === 'completed' && tournament.winner_team_ids ? (
-          <div className="bg-emerald-500/10 border border-emerald-500/20 px-5 py-3 rounded-2xl flex items-center gap-3 max-w-sm">
-            <Award className="w-6 h-6 text-emerald-400 animate-bounce flex-shrink-0" />
-            <div className="min-w-0">
-              <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Juara Turnamen</span>
-              <h4 className="text-sm font-bold text-slate-100 truncate">{getTeamNames(tournament.winner_team_ids)}</h4>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2.5">
-            {tournament.status === 'active' && (
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {tournament.status === 'active' && (
+            <>
               <button
                 onClick={handleAddTeamButton}
                 className="px-4 py-2.5 rounded-xl gradient-btn flex items-center gap-2 text-xs font-bold"
@@ -454,26 +470,67 @@ export const TournamentDetail: React.FC = () => {
                 <Users className="w-4 h-4" />
                 <span>Tambah Tim</span>
               </button>
-            )}
+              <button
+                onClick={handleCloseTournament}
+                className="px-4 py-2.5 rounded-xl glass-btn flex items-center gap-2 text-xs font-bold text-amber-300 border-amber-500/30 hover:bg-amber-500/10 hover:border-amber-500/50"
+                title="Tutup turnamen lebih awal (pertandingan yang sudah dimainkan tetap dihitung)"
+              >
+                <Lock className="w-4 h-4" />
+                <span>Tutup Turnamen</span>
+              </button>
+            </>
+          )}
+          {tournament.status === 'completed' && !tournament.winner_team_ids && (
             <button
-              onClick={handleDeleteTournament}
-              className="px-4 py-2.5 rounded-xl glass-btn flex items-center gap-2 text-xs font-bold text-rose-400 border-rose-500/30 hover:bg-rose-500/10 hover:border-rose-500/50"
-              title="Hapus Turnamen"
+              onClick={handleReopenTournament}
+              className="px-4 py-2.5 rounded-xl glass-btn flex items-center gap-2 text-xs font-bold text-brand-primary border-brand-primary/30 hover:bg-brand-primary/10 hover:border-brand-primary/50"
+              title="Buka kembali turnamen untuk melanjutkan pertandingan"
             >
-              <Trash2 className="w-4 h-4" />
-              <span>Hapus</span>
+              <Unlock className="w-4 h-4" />
+              <span>Buka Kembali</span>
             </button>
-          </div>
-        )}
+          )}
+          <button
+            onClick={handleDeleteTournament}
+            className="px-4 py-2.5 rounded-xl glass-btn flex items-center gap-2 text-xs font-bold text-rose-400 border-rose-500/30 hover:bg-rose-500/10 hover:border-rose-500/50"
+            title="Hapus Turnamen"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Hapus</span>
+          </button>
+        </div>
       </div>
 
+      {/* Winner banner (tournament finished normally) */}
+      {tournament.status === 'completed' && tournament.winner_team_ids && (
+        <div className="bg-emerald-500/10 border border-emerald-500/20 px-5 py-3 rounded-2xl flex items-center gap-3 max-w-sm">
+          <Award className="w-6 h-6 text-emerald-400 animate-bounce flex-shrink-0" />
+          <div className="min-w-0">
+            <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Juara Turnamen</span>
+            <h4 className="text-sm font-bold text-slate-100 truncate">{getTeamNames(tournament.winner_team_ids)}</h4>
+          </div>
+        </div>
+      )}
+
+      {/* Closed-early note (tournament closed without a winner) */}
+      {tournament.status === 'completed' && !tournament.winner_team_ids && (
+        <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-2.5 text-xs text-amber-300">
+          <Lock className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+          <span>
+            <strong>Turnamen ditutup lebih awal.</strong> Pertandingan yang sudah dimainkan tetap dihitung, sisa pertandingan tidak dimainkan, dan tidak ada juara yang ditentukan. Klik "Buka Kembali" untuk melanjutkan.
+          </span>
+        </div>
+      )}
+
       {/* Guide Banner */}
-      <div className="p-3 bg-dark-900/60 border border-dark-800 rounded-xl flex items-start gap-2.5 text-xs text-slate-400">
-        <Info className="w-4.5 h-4.5 text-brand-primary mt-0.5 flex-shrink-0" />
-        <span>
-          <strong>Cara memperbarui skor:</strong> Klik pada kotak pertandingan yang aktif untuk memasukkan skor. Pemenang secara otomatis akan melaju ke babak berikutnya. Kotak <strong>BYE</strong> yang putus-putus bisa diklik untuk mengisi tim baru (mis. teman yang datang telat).
-        </span>
-      </div>
+      {tournament.status === 'active' && (
+        <div className="p-3 bg-dark-900/60 border border-dark-800 rounded-xl flex items-start gap-2.5 text-xs text-slate-400">
+          <Info className="w-4.5 h-4.5 text-brand-primary mt-0.5 flex-shrink-0" />
+          <span>
+            <strong>Cara memperbarui skor:</strong> Klik pada kotak pertandingan yang aktif untuk memasukkan skor. Pemenang secara otomatis akan melaju ke babak berikutnya. Kotak <strong>BYE</strong> yang putus-putus bisa diklik untuk mengisi tim baru (mis. teman yang datang telat).
+          </span>
+        </div>
+      )}
 
       {/* Bracket Canvas Area */}
       <div className="w-full overflow-x-auto py-8 px-4 glass-panel rounded-2xl border border-dark-800/80">
@@ -524,9 +581,10 @@ export const TournamentDetail: React.FC = () => {
             const hasTeams = match.team1_ids.length > 0 && match.team2_ids.length > 0;
             const byeSlot = getEmptyByeSlot(match);
             const isBye = byeSlot !== null;
+            const isActive = tournament.status === 'active';
 
             // Check active state
-            const isClickable = hasTeams;
+            const isClickable = isActive && hasTeams;
 
             return (
               <div
@@ -534,15 +592,17 @@ export const TournamentDetail: React.FC = () => {
                 onClick={() => {
                   if (isClickable) {
                     handleOpenScoreModal(match);
-                  } else if (isBye && match.round === 1) {
+                  } else if (isActive && isBye && match.round === 1) {
                     handleOpenFillModal(match);
                   }
                 }}
                 className={`absolute glass-card rounded-xl p-3 flex flex-col justify-between shadow-md transition-all duration-300 z-10 ${isClickable
                   ? 'cursor-pointer hover:scale-102 hover:shadow-lg'
-                  : isBye
+                  : isBye && isActive
                     ? 'cursor-pointer border-dashed border-brand-primary/40 hover:border-brand-primary/80 bg-brand-primary/5'
-                    : 'opacity-85'
+                    : isBye
+                      ? 'border-dashed border-dark-700/60 opacity-85'
+                      : 'opacity-85'
                   }`}
                 style={{
                   width: `${cardWidth}px`,

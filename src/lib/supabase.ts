@@ -186,6 +186,14 @@ const localDb = {
     localStorage.setItem('mabar_tournaments', JSON.stringify(tournaments));
     return tournaments[index];
   },
+  setTournamentStatus: async (id: string, status: 'active' | 'completed'): Promise<Tournament> => {
+    const tournaments = await localDb.getTournaments();
+    const index = tournaments.findIndex((t) => t.id === id);
+    if (index === -1) throw new Error('Tournament not found');
+    tournaments[index].status = status;
+    localStorage.setItem('mabar_tournaments', JSON.stringify(tournaments));
+    return tournaments[index];
+  },
   deleteTournament: async (id: string): Promise<void> => {
     const tournaments = await localDb.getTournaments();
     const updated = tournaments.filter((t) => t.id !== id);
@@ -393,6 +401,19 @@ export const db = {
       return data;
     }
     return localDb.updateTournamentWinner(id, winnerTeamIds);
+  },
+  setTournamentStatus: async (id: string, status: 'active' | 'completed'): Promise<Tournament> => {
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('tournaments')
+        .update({ status })
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    }
+    return localDb.setTournamentStatus(id, status);
   },
   deleteTournament: async (id: string): Promise<void> => {
     if (supabase) {

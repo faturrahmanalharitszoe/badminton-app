@@ -78,6 +78,18 @@ export const useDeleteTournament = () => {
   });
 };
 
+export const useSetTournamentStatus = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'active' | 'completed' }) =>
+      db.setTournamentStatus(id, status),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tournaments });
+      queryClient.invalidateQueries({ queryKey: queryKeys.tournament(variables.id) });
+    },
+  });
+};
+
 // -------------------------------------------------------------
 // BRACKET GENERATION & TOURNAMENT INITIALIZATION HOOK
 // -------------------------------------------------------------
