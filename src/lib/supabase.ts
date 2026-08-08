@@ -700,6 +700,8 @@ export const db = {
       if (fields.score1 !== undefined) payload.score1 = fields.score1;
       if (fields.score2 !== undefined) payload.score2 = fields.score2;
       if (fields.set_scores !== undefined) payload.set_scores = fields.set_scores;
+      if (fields.next_match_id !== undefined) payload.next_match_id = fields.next_match_id;
+      if (fields.next_match_is_team2 !== undefined) payload.next_match_is_team2 = fields.next_match_is_team2;
 
       const { data, error } = await supabase
         .from('matches')
