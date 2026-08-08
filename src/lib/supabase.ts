@@ -252,6 +252,59 @@ const localDb = {
     localStorage.setItem('mabar_matches', JSON.stringify(matches));
     return matches[index];
   },
+  updateMatchFields: async (matchId: string, fields: Partial<Match>): Promise<Match> => {
+    initializeLocalStorage();
+    const matches: Match[] = JSON.parse(localStorage.getItem('mabar_matches') || '[]');
+    const index = matches.findIndex((m) => m.id === matchId);
+    if (index === -1) throw new Error('Match not found');
+    matches[index] = { ...matches[index], ...fields };
+    localStorage.setItem('mabar_matches', JSON.stringify(matches));
+    return matches[index];
+  },
+};
+
+// ── Add-team / Fill-bye helper ──
+// Fills the empty slot of a round-1 BYE match with a new team, and undoes the
+// auto-advance that the bye team had already received (so it has to play again).
+// Returns the list of matches that were modified (caller persists them).
+const prepareTeamFill = (
+  matches: Match[],
+  matchId: string,
+  emptySlot: 'team1' | 'team2',
+  newTeamIds: string[]
+): Match[] => {
+  const byId = new Map<string, Match>(matches.map((m) => [m.id, m]));
+  const target = byId.get(matchId);
+  if (!target) throw new Error('Pertandingan tidak ditemukan');
+
+  if (emptySlot === 'team1') target.team1_ids = [...newTeamIds];
+  else target.team2_ids = [...newTeamIds];
+
+  // It's a real match now — clear any auto-bye result
+  target.winner = null;
+  target.score1 = null;
+  target.score2 = null;
+  target.set_scores = null;
+
+  const toUpdate: Match[] = [target];
+
+  // Undo the auto-advance of the previously-lone team into the parent match.
+  if (target.next_match_id) {
+    const parent = byId.get(target.next_match_id);
+    if (parent) {
+      const slotKey = target.next_match_is_team2 ? 'team2_ids' : 'team1_ids';
+      if (parent[slotKey].length > 0) {
+        // Can't undo a bye whose advanced team has already been played.
+        if (parent.winner !== null || parent.score1 !== null || parent.score2 !== null) {
+          throw new Error('Slot bye ini sudah terlanjur dimainkan. Gunakan slot bye lain.');
+        }
+        parent[slotKey] = [];
+        toUpdate.push(parent);
+      }
+    }
+  }
+
+  return toUpdate;
 };
 
 // Unified Database API
@@ -461,5 +514,67 @@ export const db = {
       return data;
     }
     return localDb.updateMatchTeams(matchId, team1Ids, team2Ids);
+  },
+  updateMatchFields: async (matchId: string, fields: Partial<Match>): Promise<Match> => {
+    if (supabase) {
+      const payload: any = {};
+      if (fields.team1_ids !== undefined) payload.team1_ids = fields.team1_ids;
+      if (fields.team2_ids !== undefined) payload.team2_ids = fields.team2_ids;
+      if (fields.winner !== undefined) payload.winner = fields.winner;
+      if (fields.score1 !== undefined) payload.score1 = fields.score1;
+      if (fields.score2 !== undefined) payload.score2 = fields.score2;
+      if (fields.set_scores !== undefined) payload.set_scores = fields.set_scores;
+
+      const { data, error } = await supabase
+        .from('matches')
+        .update(payload)
+        .eq('id', matchId)
+        .select()
+        .single();
+      if (error) {
+        const msg = (error.message || '').toLowerCase();
+        if (fields.set_scores !== undefined && (msg.includes('set_scores') || msg.includes('column') || msg.includes('schema cache'))) {
+          // Column missing — keep set_scores in the localStorage bridge
+          const bridgeData = JSON.parse(localStorage.getItem('mabar_set_scores_bridge') || '{}');
+          if (fields.set_scores === null) delete bridgeData[matchId];
+          else bridgeData[matchId] = fields.set_scores;
+          localStorage.setItem('mabar_set_scores_bridge', JSON.stringify(bridgeData));
+
+          const fallbackPayload = { ...payload };
+          delete fallbackPayload.set_scores;
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('matches')
+            .update(fallbackPayload)
+            .eq('id', matchId)
+            .select()
+            .single();
+          if (fallbackError) throw fallbackError;
+          if (fallbackData && fields.set_scores !== null) fallbackData.set_scores = fields.set_scores;
+          return fallbackData;
+        }
+        throw error;
+      }
+      return data;
+    }
+    return localDb.updateMatchFields(matchId, fields);
+  },
+  applyTeamFill: async (
+    tournamentId: string,
+    matchId: string,
+    emptySlot: 'team1' | 'team2',
+    newTeamIds: string[]
+  ): Promise<void> => {
+    const matches = await db.getMatches(tournamentId);
+    const toUpdate = prepareTeamFill(matches, matchId, emptySlot, newTeamIds);
+    for (const m of toUpdate) {
+      await db.updateMatchFields(m.id, {
+        team1_ids: m.team1_ids,
+        team2_ids: m.team2_ids,
+        winner: m.winner,
+        score1: m.score1,
+        score2: m.score2,
+        set_scores: m.set_scores,
+      });
+    }
   },
 };

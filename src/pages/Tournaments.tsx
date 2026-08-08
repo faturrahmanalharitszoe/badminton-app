@@ -17,7 +17,9 @@ import {
   Shuffle,
   GitBranch,
   CheckCircle,
-  HelpCircle
+  HelpCircle,
+  Command,
+  ListOrdered
 } from 'lucide-react';
 
 export const Tournaments: React.FC = () => {
@@ -37,6 +39,10 @@ export const Tournaments: React.FC = () => {
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [teams, setTeams] = useState<string[][]>([]); // Array of teams. Each team is string[] (ids)
   const [manualSelection, setManualSelection] = useState<string[]>([]); // Current manual team formation buffer
+
+  // Schedule command (natural language match ordering)
+  const [scheduleCommand, setScheduleCommand] = useState('');
+  const [scheduleFeedback, setScheduleFeedback] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
   const handleTogglePlayer = (id: string) => {
     if (selectedPlayerIds.includes(id)) {
@@ -62,6 +68,8 @@ export const Tournaments: React.FC = () => {
     setWizardStep(3);
     setTeams([]);
     setManualSelection([]);
+    setScheduleCommand('');
+    setScheduleFeedback(null);
   };
 
   // Pairing Generator: Random
@@ -181,6 +189,8 @@ export const Tournaments: React.FC = () => {
     setSelectedPlayerIds([]);
     setTeams([]);
     setManualSelection([]);
+    setScheduleCommand('');
+    setScheduleFeedback(null);
   };
 
   const handleDeleteTournament = async (id: string, tournamentName: string) => {
@@ -196,6 +206,62 @@ export const Tournaments: React.FC = () => {
   const getPlayerName = (id: string) => {
     if (id === 'ghost') return '👻 GHOST';
     return players.find((p) => p.id === id)?.name || 'Pemain Tidak Diketahui';
+  };
+
+  // ── Schedule command: parse natural-language match ordering ──
+  // e.g. "jangan kasih Marcus dan Kevin main duluan" → those teams play later
+  const parseScheduleCommand = (input: string): { mode: 'early' | 'late'; playerNames: string[] } | null => {
+    const text = input.toLowerCase().trim();
+    if (!text) return null;
+
+    const jangan = /\bjangan\b/.test(text);
+    const terakhir = /\b(main\s*terakhir|paling\s*akhir|terakhir)\b/.test(text);
+    const earlyKw = /\b(main\s*duluan|main\s*pertama|main\s*awal|duluan|pertama|awal|dulu)\b/.test(text);
+    const keNum = text.match(/ke\s*(\d+)/);
+
+    let mode: 'early' | 'late';
+    if (terakhir) mode = 'late';
+    else if (keNum) mode = parseInt(keNum[1], 10) >= 2 ? 'late' : 'early';
+    else if (earlyKw) mode = jangan ? 'late' : 'early';
+    else return null;
+
+    const playerNames = players.filter((p) => text.includes(p.name.toLowerCase())).map((p) => p.name);
+    if (playerNames.length === 0) return null;
+
+    return { mode, playerNames };
+  };
+
+  const applyScheduleCommand = () => {
+    if (teams.length === 0) return;
+    const parsed = parseScheduleCommand(scheduleCommand);
+    if (!parsed) {
+      setScheduleFeedback({
+        type: 'error',
+        text: 'Perintah tidak dikenali. Contoh: "jangan kasih Marcus dan Kevin main duluan".',
+      });
+      return;
+    }
+
+    const isTarget = (team: string[]) => team.some((id) => parsed.playerNames.includes(getPlayerName(id)));
+    const targetTeams = teams.filter(isTarget);
+    const otherTeams = teams.filter((t) => !isTarget(t));
+
+    if (targetTeams.length === 0) {
+      setScheduleFeedback({
+        type: 'error',
+        text: `Tidak ada tim berisi: ${parsed.playerNames.join(' & ')}. Pastikan nama yang Anda tulis sudah dipilih sebagai pemain.`,
+      });
+      return;
+    }
+
+    const ordered = parsed.mode === 'early' ? [...targetTeams, ...otherTeams] : [...otherTeams, ...targetTeams];
+    setTeams(ordered);
+    setScheduleFeedback({
+      type: 'success',
+      text: parsed.mode === 'early'
+        ? `Tim ${parsed.playerNames.join(' & ')} akan main duluan — ditempatkan di pertandingan awal bagan.`
+        : `Tim ${parsed.playerNames.join(' & ')} tidak akan main pertama — dipindah ke pertandingan berikutnya (ke-2, ke-3, dst).`,
+    });
   };
 
   // Get unassigned players for manual pairings
@@ -406,6 +472,45 @@ export const Tournaments: React.FC = () => {
                 </div>
               </div>
 
+              {/* Schedule command (natural language ordering) */}
+              <div className="p-4 bg-dark-950/50 border border-brand-primary/20 rounded-xl space-y-3">
+                <div className="flex items-start gap-2.5">
+                  <Command className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-300">Atur Urutan Main dengan Perintah</h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Ketik perintah untuk menentukan siapa yang main lebih dulu atau lebih belakangan di bagan. Contoh:{" "}
+                      <em>"jangan kasih Marcus dan Kevin main duluan"</em> → mereka main di pertandingan ke-2, ke-3, dst.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={scheduleCommand}
+                    onChange={(e) => setScheduleCommand(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && applyScheduleCommand()}
+                    placeholder='Misal: "jangan kasih Marcus dan Kevin main duluan"'
+                    className="flex-1 glass-input py-2 text-sm"
+                  />
+                  <button
+                    onClick={applyScheduleCommand}
+                    className="glass-btn px-4 rounded-xl text-xs flex items-center gap-1.5 hover:border-brand-primary"
+                  >
+                    <ListOrdered className="w-3.5 h-3.5" />
+                    <span>Terapkan</span>
+                  </button>
+                </div>
+                {scheduleFeedback && (
+                  <p className={`text-xs p-2.5 rounded-xl border ${scheduleFeedback.type === 'error'
+                    ? 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+                    : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                    }`}>
+                    {scheduleFeedback.text}
+                  </p>
+                )}
+              </div>
+
               {/* Pairings Builder Workspace */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                 {/* Unassigned / Manual selection buffer */}
@@ -585,7 +690,7 @@ export const Tournaments: React.FC = () => {
                         e.stopPropagation();
                         handleDeleteTournament(tournament.id, tournament.name);
                       }}
-                      className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors opacity-0 group-hover:opacity-100 duration-200"
+                      className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                       title="Hapus Turnamen"
                     >
                       <Trash2 className="w-4 h-4" />

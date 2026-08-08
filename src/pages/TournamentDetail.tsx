@@ -1,15 +1,19 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   useTournament,
   useMatches,
   useUpdateMatchScore,
-  usePlayers
+  usePlayers,
+  useAddTeamToTournament,
+  useDeleteTournament,
+  useAddPlayer
 } from '../hooks/useQueries';
-import { Trophy, ArrowLeft, Edit3, Calendar, Award, Info, AlertTriangle } from 'lucide-react';
+import { Trophy, ArrowLeft, Edit3, Calendar, Award, Info, AlertTriangle, Users, Trash2, UserPlus, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useQueryClient } from '@tanstack/react-query';
 import { db } from '../lib/supabase';
+import type { Match } from '../lib/supabase';
 import { getAvatarColor, getJomokAvatar } from '../lib/avatar';
 
 export const TournamentDetail: React.FC = () => {
@@ -20,12 +24,23 @@ export const TournamentDetail: React.FC = () => {
   const { data: matches = [], isLoading: loadingMatches } = useMatches(tournamentId);
   const { data: players = [] } = usePlayers();
   const updateMatchScoreMutation = useUpdateMatchScore();
+  const addTeamMutation = useAddTeamToTournament();
+  const deleteTournamentMutation = useDeleteTournament();
+  const addPlayerMutation = useAddPlayer();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // Score modal states
   const [selectedMatch, setSelectedMatch] = useState<any | null>(null);
   const [sets, setSets] = useState<{ t1: string; t2: string }[]>([{ t1: '', t2: '' }]);
   const [modalError, setModalError] = useState<string | null>(null);
+
+  // Fill-bye (add new team) modal states
+  const [fillMatch, setFillMatch] = useState<Match | null>(null);
+  const [fillSlot, setFillSlot] = useState<'team1' | 'team2'>('team1');
+  const [fillSelectedIds, setFillSelectedIds] = useState<string[]>([]);
+  const [fillNewPlayerName, setFillNewPlayerName] = useState('');
+  const [fillError, setFillError] = useState<string | null>(null);
 
   // Player lookup map - must be before conditional returns (Rules of Hooks)
   const playerLookup = useMemo(() => {
@@ -45,6 +60,121 @@ export const TournamentDetail: React.FC = () => {
     if (!teamIds || teamIds.length === 0) return 'Menunggu...';
     return teamIds.map((id) => getPlayerName(id)).join(' & ');
   }, [getPlayerName]);
+
+  // Which slot of a match is empty (a BYE)? Returns null if the match has 0 or 2 teams.
+  const getEmptyByeSlot = useCallback((match: Match): 'team1' | 'team2' | null => {
+    const t1Empty = !match.team1_ids || match.team1_ids.length === 0;
+    const t2Empty = !match.team2_ids || match.team2_ids.length === 0;
+    if (t1Empty && !t2Empty) return 'team1';
+    if (t2Empty && !t1Empty) return 'team2';
+    return null;
+  }, []);
+
+  // A BYE slot is safe to fill only if the auto-advanced team hasn't played yet.
+  const isByeSafe = useCallback((match: Match) => {
+    if (match.round !== 1 || getEmptyByeSlot(match) === null) return false;
+    if (match.next_match_id) {
+      const parent = matches.find((p) => p.id === match.next_match_id);
+      if (parent && (parent.winner !== null || parent.score1 !== null || parent.score2 !== null)) return false;
+    }
+    return true;
+  }, [matches, getEmptyByeSlot]);
+
+  // Player ids already participating in this tournament (so we can't duplicate them).
+  const tournamentPlayerIds = useMemo(() => {
+    const s = new Set<string>();
+    matches.forEach((m) => {
+      (m.team1_ids || []).forEach((id) => id !== 'ghost' && s.add(id));
+      (m.team2_ids || []).forEach((id) => id !== 'ghost' && s.add(id));
+    });
+    return s;
+  }, [matches]);
+
+  const handleOpenFillModal = (match: Match) => {
+    const slot = getEmptyByeSlot(match);
+    if (!slot) return;
+    setFillMatch(match);
+    setFillSlot(slot);
+    setFillSelectedIds([]);
+    setFillNewPlayerName('');
+    setFillError(null);
+  };
+
+  const handleAddTeamButton = () => {
+    const available = matches.filter((m) => isByeSafe(m));
+    if (available.length === 0) {
+      alert('Tidak ada slot BYE yang tersedia untuk menambah tim baru.');
+      return;
+    }
+    handleOpenFillModal(available[0]);
+  };
+
+  const toggleFillPlayer = (pId: string) => {
+    setFillSelectedIds((prev) => {
+      if (prev.includes(pId)) return prev.filter((id) => id !== pId);
+      if (tournament?.format === 'double') {
+        if (prev.length >= 2) return prev;
+        return [...prev, pId];
+      }
+      return [pId];
+    });
+  };
+
+  const handleCreateFillPlayer = async () => {
+    const name = fillNewPlayerName.trim();
+    if (name.length < 2) {
+      setFillError('Nama pemain minimal 2 karakter');
+      return;
+    }
+    try {
+      const player = await addPlayerMutation.mutateAsync(name);
+      setFillNewPlayerName('');
+      setFillSelectedIds((prev) => {
+        if (tournament?.format === 'double') {
+          if (prev.length >= 2) return prev;
+          return [...prev, player.id];
+        }
+        return [player.id];
+      });
+      setFillError(null);
+    } catch (err: any) {
+      setFillError(err.message || 'Gagal menambahkan pemain');
+    }
+  };
+
+  const handleSubmitFill = async () => {
+    if (!fillMatch) return;
+    const needed = tournament?.format === 'double' ? 2 : 1;
+    if (fillSelectedIds.length !== needed) {
+      setFillError(tournament?.format === 'double' ? 'Pilih 2 pemain untuk membentuk tim ganda.' : 'Pilih 1 pemain untuk tim tunggal.');
+      return;
+    }
+    try {
+      await addTeamMutation.mutateAsync({
+        tournamentId,
+        matchId: fillMatch.id,
+        emptySlot: fillSlot,
+        teamIds: fillSelectedIds,
+      });
+      setFillMatch(null);
+      setFillSelectedIds([]);
+      setFillError(null);
+    } catch (err: any) {
+      setFillError(err.message || 'Gagal menambahkan tim');
+    }
+  };
+
+  const handleDeleteTournament = async () => {
+    if (!tournament) return;
+    if (window.confirm(`Apakah Anda yakin ingin menghapus turnamen "${tournament.name}"? Ini akan menghapus semua pertandingan dan skor terkait secara permanen.`)) {
+      try {
+        await deleteTournamentMutation.mutateAsync(tournament.id);
+        navigate('/tournaments');
+      } catch (err: any) {
+        alert(err.message || 'Gagal menghapus turnamen');
+      }
+    }
+  };
 
   // Helper component to render player avatar with name
   const PlayerAvatarWithName = useCallback(({ pId, showName = true }: { pId: string; showName?: boolean }) => {
@@ -305,13 +435,34 @@ export const TournamentDetail: React.FC = () => {
           </div>
         </div>
 
-        {tournament.status === 'completed' && tournament.winner_team_ids && (
+        {tournament.status === 'completed' && tournament.winner_team_ids ? (
           <div className="bg-emerald-500/10 border border-emerald-500/20 px-5 py-3 rounded-2xl flex items-center gap-3 max-w-sm">
             <Award className="w-6 h-6 text-emerald-400 animate-bounce flex-shrink-0" />
             <div className="min-w-0">
               <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Juara Turnamen</span>
               <h4 className="text-sm font-bold text-slate-100 truncate">{getTeamNames(tournament.winner_team_ids)}</h4>
             </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2.5">
+            {tournament.status === 'active' && (
+              <button
+                onClick={handleAddTeamButton}
+                className="px-4 py-2.5 rounded-xl gradient-btn flex items-center gap-2 text-xs font-bold"
+                title="Tambahkan tim/pemain baru ke turnamen yang sedang berjalan"
+              >
+                <Users className="w-4 h-4" />
+                <span>Tambah Tim</span>
+              </button>
+            )}
+            <button
+              onClick={handleDeleteTournament}
+              className="px-4 py-2.5 rounded-xl glass-btn flex items-center gap-2 text-xs font-bold text-rose-400 border-rose-500/30 hover:bg-rose-500/10 hover:border-rose-500/50"
+              title="Hapus Turnamen"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Hapus</span>
+            </button>
           </div>
         )}
       </div>
@@ -320,7 +471,7 @@ export const TournamentDetail: React.FC = () => {
       <div className="p-3 bg-dark-900/60 border border-dark-800 rounded-xl flex items-start gap-2.5 text-xs text-slate-400">
         <Info className="w-4.5 h-4.5 text-brand-primary mt-0.5 flex-shrink-0" />
         <span>
-          <strong>Cara memperbarui skor:</strong> Klik pada kotak pertandingan yang aktif untuk memasukkan skor. Pemenang secara otomatis akan melaju ke babak berikutnya. Bye akan diproses secara otomatis.
+          <strong>Cara memperbarui skor:</strong> Klik pada kotak pertandingan yang aktif untuk memasukkan skor. Pemenang secara otomatis akan melaju ke babak berikutnya. Kotak <strong>BYE</strong> yang putus-putus bisa diklik untuk mengisi tim baru (mis. teman yang datang telat).
         </span>
       </div>
 
@@ -371,6 +522,8 @@ export const TournamentDetail: React.FC = () => {
             const isTeam1Bye = match.round === 1 && match.team1_ids.length === 0 && match.team2_ids.length > 0;
             const isTeam2Bye = match.round === 1 && match.team2_ids.length === 0 && match.team1_ids.length > 0;
             const hasTeams = match.team1_ids.length > 0 && match.team2_ids.length > 0;
+            const byeSlot = getEmptyByeSlot(match);
+            const isBye = byeSlot !== null;
 
             // Check active state
             const isClickable = hasTeams;
@@ -378,10 +531,18 @@ export const TournamentDetail: React.FC = () => {
             return (
               <div
                 key={match.id}
-                onClick={() => isClickable && handleOpenScoreModal(match)}
+                onClick={() => {
+                  if (isClickable) {
+                    handleOpenScoreModal(match);
+                  } else if (isBye && match.round === 1) {
+                    handleOpenFillModal(match);
+                  }
+                }}
                 className={`absolute glass-card rounded-xl p-3 flex flex-col justify-between shadow-md transition-all duration-300 z-10 ${isClickable
                   ? 'cursor-pointer hover:scale-102 hover:shadow-lg'
-                  : 'opacity-85'
+                  : isBye
+                    ? 'cursor-pointer border-dashed border-brand-primary/40 hover:border-brand-primary/80 bg-brand-primary/5'
+                    : 'opacity-85'
                   }`}
                 style={{
                   width: `${cardWidth}px`,
@@ -407,7 +568,7 @@ export const TournamentDetail: React.FC = () => {
                   }`}>
                   <div className="truncate max-w-[190px]">
                     {isTeam1Bye ? (
-                      <span className="text-slate-400 italic">BYE (Lolos)</span>
+                      <span className="text-slate-400 italic">BYE — klik untuk isi</span>
                     ) : (
                       <TeamDisplay
                         teamIds={match.team1_ids}
@@ -430,7 +591,7 @@ export const TournamentDetail: React.FC = () => {
                   }`}>
                   <div className="truncate max-w-[190px]">
                     {isTeam2Bye ? (
-                      <span className="text-slate-400 italic">BYE (Lolos)</span>
+                      <span className="text-slate-400 italic">BYE — klik untuk isi</span>
                     ) : (
                       <TeamDisplay
                         teamIds={match.team2_ids}
@@ -598,6 +759,132 @@ export const TournamentDetail: React.FC = () => {
                   Simpan Skor
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fill-Bye / Add New Team Modal */}
+      {fillMatch && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="glass-panel max-w-md w-full p-6 rounded-2xl border border-dark-800 space-y-5 animate-scale-in">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-dark-800 pb-3">
+              <div>
+                <h3 className="font-bold text-lg text-white flex items-center gap-2">
+                  <Users className="w-4 h-4 text-brand-secondary" />
+                  Tambah Tim Baru
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Babak {fillMatch.round} • Pertandingan {fillMatch.match_index + 1}
+                  {fillSlot === 'team1' ? ' • Slot Tim 1' : ' • Slot Tim 2'}
+                </p>
+              </div>
+              <button
+                onClick={() => setFillMatch(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-dark-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Opponent already waiting */}
+            <div className="p-3 bg-dark-950/40 border border-dark-800 rounded-xl text-xs">
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-1">Lawan (sudah terisi)</span>
+              <span className="text-slate-200 font-medium">
+                {fillSlot === 'team1' ? getTeamNames(fillMatch.team2_ids) : getTeamNames(fillMatch.team1_ids)}
+              </span>
+            </div>
+
+            {/* Quick-create new player */}
+            <div className="space-y-2">
+              <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Pemain belum terdaftar?</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={fillNewPlayerName}
+                  onChange={(e) => setFillNewPlayerName(e.target.value)}
+                  placeholder="Nama pemain baru"
+                  className="flex-1 glass-input py-2 text-sm"
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateFillPlayer()}
+                />
+                <button
+                  onClick={handleCreateFillPlayer}
+                  disabled={addPlayerMutation.isPending || !fillNewPlayerName.trim()}
+                  className="glass-btn px-3 rounded-xl flex items-center gap-1.5 text-xs disabled:opacity-50"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Tambah</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Player selection */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                  Pilih {tournament?.format === 'double' ? '2 pemain' : '1 pemain'}
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${fillSelectedIds.length === (tournament?.format === 'double' ? 2 : 1)
+                  ? 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary'
+                  : 'bg-dark-800/40 border-dark-700 text-slate-400'
+                  }`}>
+                  {fillSelectedIds.length}/{tournament?.format === 'double' ? 2 : 1}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-1">
+                {players.length === 0 ? (
+                  <div className="col-span-2 text-center py-8 text-xs text-slate-500 border border-dashed border-dark-800 rounded-xl">
+                    Belum ada pemain terdaftar. Buat pemain baru di atas.
+                  </div>
+                ) : (
+                  players.map((p) => {
+                    const inTournament = tournamentPlayerIds.has(p.id);
+                    const isSelected = fillSelectedIds.includes(p.id);
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => !inTournament && toggleFillPlayer(p.id)}
+                        disabled={inTournament}
+                        className={`px-3 py-2 rounded-xl border text-left text-xs font-medium transition-all ${isSelected
+                          ? 'bg-brand-primary/15 border-brand-primary/60 text-white'
+                          : inTournament
+                            ? 'opacity-40 cursor-not-allowed border-dark-800 text-slate-500'
+                            : 'bg-dark-900 border-dark-800/80 hover:border-brand-primary/50 text-slate-300'
+                          }`}
+                      >
+                        <span className="truncate block">{p.name}</span>
+                        {inTournament && <span className="text-[9px] text-slate-600 block">sudah di turnamen</span>}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {fillError && (
+              <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-xl text-center">
+                {fillError}
+              </p>
+            )}
+
+            {/* Actions */}
+            <div className="flex items-center gap-3 justify-end pt-2 border-t border-dark-800">
+              <button
+                onClick={() => setFillMatch(null)}
+                className="glass-btn px-4 py-2.5 rounded-xl text-xs"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleSubmitFill}
+                disabled={addTeamMutation.isPending}
+                className="px-5 py-2.5 rounded-xl gradient-btn text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Users className="w-4 h-4" />
+                {addTeamMutation.isPending ? 'Menambahkan...' : 'Tambahkan ke Bagan'}
+              </button>
             </div>
           </div>
         </div>
