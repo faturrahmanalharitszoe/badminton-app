@@ -278,6 +278,45 @@ const localDb = {
     localStorage.setItem('mabar_matches', JSON.stringify(matches));
     return matches[index];
   },
+  updateLeagueTeam: async (tournamentId: string, oldTeamIds: string[], newTeamIds: string[]): Promise<void> => {
+    initializeLocalStorage();
+    const oldKey = [...oldTeamIds].sort().join('_');
+    const newKey = [...newTeamIds].sort().join('_');
+    if (oldKey === newKey) return;
+    const allMatches: Match[] = JSON.parse(localStorage.getItem('mabar_matches') || '[]');
+    const tournamentMatches = allMatches.filter((m) => m.tournament_id === tournamentId);
+    // validate not duplicate team or player overlap with other teams
+    const otherTeams = new Set<string>();
+    const otherPlayerIds = new Set<string>();
+    tournamentMatches.forEach((m) => {
+      [m.team1_ids, m.team2_ids].forEach((team) => {
+        if (!team || team.length === 0) return;
+        const k = [...team].sort().join('_');
+        if (k !== oldKey) {
+          otherTeams.add(k);
+          team.forEach((pid) => otherPlayerIds.add(pid));
+        }
+      });
+    });
+    if (otherTeams.has(newKey)) throw new Error('Tim tersebut sudah ada di liga');
+    for (const pid of newTeamIds) {
+      if (otherPlayerIds.has(pid) && !oldTeamIds.includes(pid)) {
+        throw new Error('Salah satu pemain sudah ada di tim lain');
+      }
+    }
+    // also check within newTeamIds no duplicate
+    if (new Set(newTeamIds).size !== newTeamIds.length) throw new Error('Pemain tidak boleh duplikat dalam satu tim');
+    let updated = false;
+    for (const m of allMatches) {
+      if (m.tournament_id !== tournamentId) continue;
+      let changed = false;
+      if ([...m.team1_ids].sort().join('_') === oldKey) { m.team1_ids = [...newTeamIds]; changed = true; }
+      if ([...m.team2_ids].sort().join('_') === oldKey) { m.team2_ids = [...newTeamIds]; changed = true; }
+      if (changed) updated = true;
+    }
+    if (!updated) throw new Error('Tim tidak ditemukan di jadwal liga');
+    localStorage.setItem('mabar_matches', JSON.stringify(allMatches));
+  },
 };
 
 // ── Add-team / Fill-bye helper ──
@@ -866,5 +905,44 @@ export const db = {
     // No room left → expand the bracket without touching existing matches.
     await expandBracket(matches, tournamentId, newTeamIds);
     return { expanded: true };
+  },
+  updateLeagueTeam: async (tournamentId: string, oldTeamIds: string[], newTeamIds: string[]): Promise<void> => {
+    const tournament = await db.getTournamentById(tournamentId);
+    const mode = (tournament as any)?.mode || 'knockout';
+    if (mode !== 'league') throw new Error('Ganti pasangan hanya untuk mode Liga');
+    const format = (tournament as any)?.format;
+    const needed = format === 'double' ? 2 : 1;
+    if (newTeamIds.length !== needed) throw new Error(needed === 2 ? 'Pilih 2 pemain untuk ganda' : 'Pilih 1 pemain untuk tunggal');
+    if (new Set(newTeamIds).size !== newTeamIds.length) throw new Error('Pemain tidak boleh duplikat dalam satu tim');
+    const oldKey = [...oldTeamIds].sort().join('_');
+    const newKey = [...newTeamIds].sort().join('_');
+    if (oldKey === newKey) return;
+    const matches = await db.getMatches(tournamentId);
+    const otherTeams = new Set<string>();
+    const otherPlayerIds = new Set<string>();
+    matches.forEach((m) => {
+      [m.team1_ids, m.team2_ids].forEach((team) => {
+        if (!team || team.length === 0) return;
+        const k = [...team].sort().join('_');
+        if (k !== oldKey) { otherTeams.add(k); team.forEach((pid: string) => otherPlayerIds.add(pid)); }
+      });
+    });
+    if (otherTeams.has(newKey)) throw new Error('Tim tersebut sudah ada di liga');
+    for (const pid of newTeamIds) {
+      if (otherPlayerIds.has(pid) && !oldTeamIds.includes(pid)) throw new Error('Salah satu pemain sudah ada di tim lain di liga ini');
+    }
+    // collect matches to update
+    const toUpdate = matches.filter((m) => [...m.team1_ids].sort().join('_') === oldKey || [...m.team2_ids].sort().join('_') === oldKey);
+    if (toUpdate.length === 0) throw new Error('Tim tidak ditemukan di jadwal liga');
+    for (const m of toUpdate) {
+      const newTeam1 = [...m.team1_ids].sort().join('_') === oldKey ? [...newTeamIds] : m.team1_ids;
+      const newTeam2 = [...m.team2_ids].sort().join('_') === oldKey ? [...newTeamIds] : m.team2_ids;
+      await db.updateMatchFields(m.id, { team1_ids: newTeam1, team2_ids: newTeam2 });
+    }
+    // if champion was old team, update tournament winner
+    const t = await db.getTournamentById(tournamentId);
+    if (t?.winner_team_ids && [...t.winner_team_ids].sort().join('_') === oldKey) {
+      await db.updateTournamentWinner(tournamentId, [...newTeamIds]);
+    }
   },
 };

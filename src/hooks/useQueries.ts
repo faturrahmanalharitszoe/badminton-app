@@ -342,6 +342,27 @@ export const useAddTeamToTournament = () => {
   });
 };
 
+export const useUpdateLeagueTeam = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      tournamentId,
+      oldTeamIds,
+      newTeamIds,
+    }: {
+      tournamentId: string;
+      oldTeamIds: string[];
+      newTeamIds: string[];
+    }) => db.updateLeagueTeam(tournamentId, oldTeamIds, newTeamIds),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.matches(variables.tournamentId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.tournament(variables.tournamentId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.tournaments });
+      queryClient.invalidateQueries({ queryKey: ['rankings'] });
+    },
+  });
+};
+
 export const useUpdateMatchScore = () => {
   const queryClient = useQueryClient();
 

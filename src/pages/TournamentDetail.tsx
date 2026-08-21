@@ -8,9 +8,10 @@ import {
   useAddTeamToTournament,
   useDeleteTournament,
   useAddPlayer,
-  useSetTournamentStatus
+  useSetTournamentStatus,
+  useUpdateLeagueTeam
 } from '../hooks/useQueries';
-import { Trophy, ArrowLeft, Edit3, Calendar, Award, Info, AlertTriangle, Users, Trash2, UserPlus, X, Lock, Unlock, Table2, Swords, BarChart3, GitBranch } from 'lucide-react';
+import { Trophy, ArrowLeft, Edit3, Calendar, Award, Info, AlertTriangle, Users, Trash2, UserPlus, X, Lock, Unlock, Table2, Swords, BarChart3, GitBranch, Pencil, Shuffle } from 'lucide-react';
 import { computeLeagueStandings } from '../hooks/useQueries';
 import confetti from 'canvas-confetti';
 import { useQueryClient } from '@tanstack/react-query';
@@ -30,6 +31,7 @@ export const TournamentDetail: React.FC = () => {
   const deleteTournamentMutation = useDeleteTournament();
   const addPlayerMutation = useAddPlayer();
   const setStatusMutation = useSetTournamentStatus();
+  const updateLeagueTeamMutation = useUpdateLeagueTeam();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -45,6 +47,13 @@ export const TournamentDetail: React.FC = () => {
   const [fillSelectedIds, setFillSelectedIds] = useState<string[]>([]);
   const [fillNewPlayerName, setFillNewPlayerName] = useState('');
   const [fillError, setFillError] = useState<string | null>(null);
+
+  // Edit team (ganti pasangan) modal states — liga only
+  const [editTeamOpen, setEditTeamOpen] = useState(false);
+  const [editOldTeamIds, setEditOldTeamIds] = useState<string[]>([]);
+  const [editSelectedIds, setEditSelectedIds] = useState<string[]>([]);
+  const [editNewPlayerName, setEditNewPlayerName] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Player lookup map - must be before conditional returns (Rules of Hooks)
   const playerLookup = useMemo(() => {
@@ -173,6 +182,66 @@ export const TournamentDetail: React.FC = () => {
     } catch (err: any) {
       setFillError(err.message || 'Gagal menambahkan pemain');
     }
+  };
+
+  // ── Ganti pasangan (liga) handlers ──
+  const handleOpenEditTeam = (teamIds: string[]) => {
+    setEditOldTeamIds([...teamIds]);
+    setEditSelectedIds([...teamIds]);
+    setEditNewPlayerName('');
+    setEditError(null);
+    setEditTeamOpen(true);
+  };
+  const toggleEditPlayer = (pId: string) => {
+    setEditSelectedIds((prev) => {
+      if (prev.includes(pId)) return prev.filter((id) => id !== pId);
+      if (tournament?.format === 'double') {
+        if (prev.length >= 2) return prev;
+        return [...prev, pId];
+      }
+      return [pId];
+    });
+  };
+  const handleCreateEditPlayer = async () => {
+    const name = editNewPlayerName.trim();
+    if (name.length < 2) { setEditError('Nama pemain minimal 2 karakter'); return; }
+    try {
+      const player = await addPlayerMutation.mutateAsync(name);
+      setEditNewPlayerName('');
+      setEditSelectedIds((prev) => {
+        if (tournament?.format === 'double') {
+          if (prev.length >= 2) return prev;
+          return [...prev, player.id];
+        }
+        return [player.id];
+      });
+      setEditError(null);
+    } catch (err: any) { setEditError(err.message || 'Gagal menambahkan pemain'); }
+  };
+  const shuffleEditTeam = () => {
+    const available = players.filter((p) => {
+      // boleh pakai pemain baru yang belum di turnamen, atau anggota tim lama
+      const isInOtherTeam = tournamentPlayerIds.has(p.id) && !editOldTeamIds.includes(p.id);
+      return !isInOtherTeam;
+    });
+    // simple: pick 2 random from available excluding current selection? just random 2
+    const shuffled = [...available].sort(() => Math.random() - 0.5);
+    const needed = tournament?.format === 'double' ? 2 : 1;
+    setEditSelectedIds(shuffled.slice(0, needed).map((p) => p.id));
+  };
+  const handleSubmitEditTeam = async () => {
+    const needed = tournament?.format === 'double' ? 2 : 1;
+    if (editSelectedIds.length !== needed) {
+      setEditError(needed === 2 ? 'Wajib pilih 2 pemain untuk ganda.' : 'Wajib pilih 1 pemain.');
+      return;
+    }
+    try {
+      await updateLeagueTeamMutation.mutateAsync({ tournamentId, oldTeamIds: editOldTeamIds, newTeamIds: editSelectedIds });
+      setEditTeamOpen(false);
+      setEditOldTeamIds([]);
+      setEditSelectedIds([]);
+      setEditError(null);
+    } catch (err: any) { setEditError(err.message || 'Gagal mengganti pasangan'); }
   };
 
   const handleDeleteTournament = async () => {
@@ -578,11 +647,12 @@ export const TournamentDetail: React.FC = () => {
                     <th className="py-3 px-3 text-center">K</th>
                     <th className="py-3 px-3 text-center">Poin</th>
                     <th className="py-3 px-3 text-center">Selisih</th>
+                    {tournament.status === 'active' && <th className="py-3 px-3 text-center w-20">Aksi</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-dark-800/50">
                   {leagueStandings.length === 0 ? (
-                    <tr><td colSpan={7} className="py-8 text-center text-xs text-slate-500">Belum ada data klasemen</td></tr>
+                    <tr><td colSpan={tournament.status === 'active' ? 8 : 7} className="py-8 text-center text-xs text-slate-500">Belum ada data klasemen</td></tr>
                   ) : leagueStandings.map((s, idx) => {
                     const isLeader = idx === 0 && s.played > 0;
                     const isCompletedLeague = leagueProgress.pct === 100;
@@ -603,6 +673,17 @@ export const TournamentDetail: React.FC = () => {
                         <td className="py-3 px-3 text-center text-xs font-bold text-rose-400">{s.losses}</td>
                         <td className="py-3 px-3 text-center"><span className={`px-2 py-1 rounded-lg text-xs font-black ${isLeader ? 'bg-emerald-500 text-white' : 'bg-dark-800 text-slate-300'}`}>{s.points}</span></td>
                         <td className={`py-3 px-3 text-center text-xs font-bold ${s.pointDiff > 0 ? 'text-indigo-400' : s.pointDiff < 0 ? 'text-rose-400' : 'text-slate-500'}`}>{s.pointDiff > 0 ? `+${s.pointDiff}` : s.pointDiff}</td>
+                        {tournament.status === 'active' && (
+                          <td className="py-3 px-3 text-center">
+                            <button
+                              onClick={() => handleOpenEditTeam(s.teamIds)}
+                              className="px-2.5 py-1 rounded-lg glass-btn text-[11px] font-bold flex items-center gap-1 mx-auto hover:border-brand-primary"
+                              title="Ganti pasangan"
+                            >
+                              <Pencil className="w-3 h-3" /> Ganti
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -1090,6 +1171,96 @@ export const TournamentDetail: React.FC = () => {
               >
                 <Users className="w-4 h-4" />
                 {addTeamMutation.isPending ? 'Menambahkan...' : isLeague ? 'Tambahkan ke Liga' : 'Tambahkan ke Bagan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Team / Ganti Pasangan Modal — Liga only */}
+      {editTeamOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="glass-panel max-w-md w-full p-6 rounded-2xl border border-dark-800 space-y-5 animate-scale-in">
+            <div className="flex items-start justify-between border-b border-dark-800 pb-3">
+              <div>
+                <h3 className="font-bold text-lg text-white flex items-center gap-2">
+                  <Pencil className="w-4 h-4 text-emerald-400" />
+                  Ganti Pasangan
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Tim saat ini: <span className="text-slate-200 font-semibold">{getTeamNames(editOldTeamIds)}</span> → semua jadwal tim ini akan terupdate.
+                </p>
+              </div>
+              <button onClick={() => setEditTeamOpen(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-dark-800 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quick-create new player */}
+            <div className="space-y-2">
+              <label className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Pemain belum terdaftar?</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={editNewPlayerName}
+                  onChange={(e) => setEditNewPlayerName(e.target.value)}
+                  placeholder="Nama pemain baru"
+                  className="flex-1 glass-input py-2 text-sm"
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateEditPlayer()}
+                />
+                <button
+                  onClick={handleCreateEditPlayer}
+                  disabled={addPlayerMutation.isPending || !editNewPlayerName.trim()}
+                  className="glass-btn px-3 rounded-xl flex items-center gap-1.5 text-xs disabled:opacity-50"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Tambah</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                  Pilih {tournament?.format === 'double' ? '2 pemain' : '1 pemain'} baru
+                </span>
+                <div className="flex items-center gap-2">
+                  <button onClick={shuffleEditTeam} className="text-[10px] glass-btn px-2 py-1 rounded-lg flex items-center gap-1" title="Acak pasangan dari pemain tersedia">
+                    <Shuffle className="w-3 h-3" /> Acak
+                  </button>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${editSelectedIds.length === (tournament?.format === 'double' ? 2 : 1) ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-dark-800/40 border-dark-700 text-slate-400'}`}>
+                    {editSelectedIds.length}/{tournament?.format === 'double' ? 2 : 1}
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-1">
+                {players.map((p) => {
+                  const isOldMember = editOldTeamIds.includes(p.id);
+                  const isInOtherTeam = tournamentPlayerIds.has(p.id) && !isOldMember;
+                  const isSelected = editSelectedIds.includes(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => !isInOtherTeam && toggleEditPlayer(p.id)}
+                      disabled={isInOtherTeam}
+                      className={`px-3 py-2 rounded-xl border text-left text-xs font-medium transition-all ${isSelected ? 'bg-emerald-500/15 border-emerald-500/60 text-white' : isInOtherTeam ? 'opacity-40 cursor-not-allowed border-dark-800 text-slate-500' : 'bg-dark-900 border-dark-800/80 hover:border-emerald-500/50 text-slate-300'}`}
+                    >
+                      <span className="truncate block">{p.name}</span>
+                      {isOldMember && <span className="text-[9px] text-emerald-400 block">anggota saat ini</span>}
+                      {isInOtherTeam && <span className="text-[9px] text-slate-600 block">sudah di tim lain</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {editError && <p className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-xl text-center">{editError}</p>}
+
+            <div className="flex items-center gap-3 justify-end pt-2 border-t border-dark-800">
+              <button onClick={() => setEditTeamOpen(false)} className="glass-btn px-4 py-2.5 rounded-xl text-xs">Batal</button>
+              <button onClick={handleSubmitEditTeam} disabled={updateLeagueTeamMutation.isPending} className="px-5 py-2.5 rounded-xl gradient-btn text-xs font-bold flex items-center gap-1.5 disabled:opacity-50">
+                <Pencil className="w-4 h-4" />
+                {updateLeagueTeamMutation.isPending ? 'Menyimpan...' : 'Simpan Pasangan'}
               </button>
             </div>
           </div>
