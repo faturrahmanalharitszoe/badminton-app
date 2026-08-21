@@ -20,7 +20,9 @@ import {
   HelpCircle,
   Command,
   ListOrdered,
-  Lock
+  Lock,
+  Table2,
+  Swords
 } from 'lucide-react';
 
 export const Tournaments: React.FC = () => {
@@ -37,6 +39,7 @@ export const Tournaments: React.FC = () => {
   const [name, setName] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [format, setFormat] = useState<'single' | 'double'>('double');
+  const [mode, setMode] = useState<'knockout' | 'league'>('knockout');
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [teams, setTeams] = useState<string[][]>([]); // Array of teams. Each team is string[] (ids)
   const [manualSelection, setManualSelection] = useState<string[]>([]); // Current manual team formation buffer
@@ -171,6 +174,7 @@ export const Tournaments: React.FC = () => {
         name: name || `Mabar ${new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short' })}`,
         date,
         format,
+        mode,
         teams,
       });
       // Reset wizard and navigate to the newly created bracket
@@ -187,6 +191,7 @@ export const Tournaments: React.FC = () => {
     setName('');
     setDate(new Date().toISOString().split('T')[0]);
     setFormat('double');
+    setMode('knockout');
     setSelectedPlayerIds([]);
     setTeams([]);
     setManualSelection([]);
@@ -278,7 +283,7 @@ export const Tournaments: React.FC = () => {
         <div>
           <h2 className="text-3xl font-bold font-sans tracking-tight gradient-text">Turnamen</h2>
           <p className="text-sm text-slate-400 mt-1">
-            Buat, lihat, dan jalankan bagan pertandingan untuk Ganda Putra (MD) dan Tunggal.
+            Buat bagan Knockout atau klasemen Liga (round-robin) untuk Ganda Putra & Tunggal.
           </p>
         </div>
 
@@ -360,6 +365,47 @@ export const Tournaments: React.FC = () => {
                     <option value="single">Tunggal (1v1)</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Mode selector: Knockout vs Liga */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Mode Turnamen</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMode('knockout')}
+                    className={`p-3 rounded-xl border text-left transition-all flex items-center gap-3 ${mode === 'knockout' ? 'bg-brand-primary/10 border-brand-primary/50 shadow-md shadow-brand-primary/10' : 'bg-dark-900/40 border-dark-800/80 hover:border-dark-700'}`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${mode === 'knockout' ? 'bg-brand-primary text-white' : 'bg-dark-800 text-slate-400'}`}>
+                      <GitBranch className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-bold ${mode === 'knockout' ? 'text-white' : 'text-slate-300'}`}>Knockout</p>
+                      <p className="text-[10px] text-slate-500 leading-tight">Sistem gugur, bagan eliminasi</p>
+                    </div>
+                    {mode === 'knockout' && <span className="text-brand-primary text-xs">●</span>}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode('league')}
+                    className={`p-3 rounded-xl border text-left transition-all flex items-center gap-3 ${mode === 'league' ? 'bg-emerald-500/10 border-emerald-500/50 shadow-md shadow-emerald-500/10' : 'bg-dark-900/40 border-dark-800/80 hover:border-dark-700'}`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${mode === 'league' ? 'bg-emerald-500 text-white' : 'bg-dark-800 text-slate-400'}`}>
+                      <Table2 className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-bold ${mode === 'league' ? 'text-white' : 'text-slate-300'}`}>Liga</p>
+                      <p className="text-[10px] text-slate-500 leading-tight">Round-robin, semua vs semua</p>
+                    </div>
+                    {mode === 'league' && <span className="text-emerald-400 text-xs">●</span>}
+                  </button>
+                </div>
+                {mode === 'league' && (
+                  <p className="text-[11px] text-emerald-300/80 bg-emerald-500/5 border border-emerald-500/15 rounded-lg px-3 py-2 flex items-center gap-2">
+                    <Swords className="w-3.5 h-3.5" />
+                    <span>Mode Liga: {teams.length >= 2 ? `${teams.length} tim → ${teams.length * (teams.length - 1) / 2} pertandingan` : 'setiap tim bertemu semua tim, klasemen poin'} (Menang = 3 poin).</span>
+                  </p>
+                )}
               </div>
 
               <div className="pt-4 flex justify-end">
@@ -473,44 +519,55 @@ export const Tournaments: React.FC = () => {
                 </div>
               </div>
 
-              {/* Schedule command (natural language ordering) */}
-              <div className="p-4 bg-dark-950/50 border border-brand-primary/20 rounded-xl space-y-3">
-                <div className="flex items-start gap-2.5">
-                  <Command className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-300">Atur Urutan Main dengan Perintah</h4>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Ketik perintah untuk menentukan siapa yang main lebih dulu atau lebih belakangan di bagan. Contoh:{" "}
-                      <em>"jangan kasih Marcus dan Kevin main duluan"</em> → mereka main di pertandingan ke-2, ke-3, dst.
+              {/* Schedule command (natural language ordering) — only for Knockout */}
+              {mode === 'knockout' && (
+                <div className="p-4 bg-dark-950/50 border border-brand-primary/20 rounded-xl space-y-3">
+                  <div className="flex items-start gap-2.5">
+                    <Command className="w-4 h-4 text-brand-primary mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h4 className="font-bold text-sm text-slate-300">Atur Urutan Main dengan Perintah</h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Ketik perintah untuk menentukan siapa yang main lebih dulu atau lebih belakangan di bagan. Contoh:{" "}
+                        <em>"jangan kasih Marcus dan Kevin main duluan"</em> → mereka main di pertandingan ke-2, ke-3, dst.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={scheduleCommand}
+                      onChange={(e) => setScheduleCommand(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && applyScheduleCommand()}
+                      placeholder='Misal: "jangan kasih Marcus dan Kevin main duluan"'
+                      className="flex-1 glass-input py-2 text-sm"
+                    />
+                    <button
+                      onClick={applyScheduleCommand}
+                      className="glass-btn px-4 rounded-xl text-xs flex items-center gap-1.5 hover:border-brand-primary"
+                    >
+                      <ListOrdered className="w-3.5 h-3.5" />
+                      <span>Terapkan</span>
+                    </button>
+                  </div>
+                  {scheduleFeedback && (
+                    <p className={`text-xs p-2.5 rounded-xl border ${scheduleFeedback.type === 'error'
+                      ? 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+                      : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                      }`}>
+                      {scheduleFeedback.text}
                     </p>
+                  )}
+                </div>
+              )}
+              {mode === 'league' && (
+                <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl flex items-start gap-2.5">
+                  <Table2 className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-bold text-sm text-emerald-300">Mode Liga — Round Robin</h4>
+                    <p className="text-xs text-slate-400 mt-0.5">Setiap tim akan bertemu semua tim lain sekali. Total {teams.length >= 2 ? `${teams.length * (teams.length - 1) / 2} pertandingan` : 'pertandingan dihitung otomatis'} • Poin: Menang = 3, Kalah = 0 • Urutan main tidak berpengaruh pada klasemen.</p>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={scheduleCommand}
-                    onChange={(e) => setScheduleCommand(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && applyScheduleCommand()}
-                    placeholder='Misal: "jangan kasih Marcus dan Kevin main duluan"'
-                    className="flex-1 glass-input py-2 text-sm"
-                  />
-                  <button
-                    onClick={applyScheduleCommand}
-                    className="glass-btn px-4 rounded-xl text-xs flex items-center gap-1.5 hover:border-brand-primary"
-                  >
-                    <ListOrdered className="w-3.5 h-3.5" />
-                    <span>Terapkan</span>
-                  </button>
-                </div>
-                {scheduleFeedback && (
-                  <p className={`text-xs p-2.5 rounded-xl border ${scheduleFeedback.type === 'error'
-                    ? 'bg-rose-500/10 border-rose-500/20 text-rose-300'
-                    : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
-                    }`}>
-                    {scheduleFeedback.text}
-                  </p>
-                )}
-              </div>
+              )}
 
               {/* Pairings Builder Workspace */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
@@ -710,6 +767,13 @@ export const Tournaments: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <Trophy className="w-4 h-4 text-slate-500" />
                       <span className="capitalize">{tournament.format === 'double' ? "Ganda Putra (MD)" : "Tunggal (1v1)"}</span>
+                      <span className={`ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${((tournament as any).mode || 'knockout') === 'league' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-brand-primary/10 border-brand-primary/20 text-brand-primary'}`}>
+                        {(tournament as any).mode === 'league' ? 'Liga' : 'Knockout'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {(tournament as any).mode === 'league' ? <Table2 className="w-4 h-4 text-emerald-400" /> : <GitBranch className="w-4 h-4 text-slate-500" />}
+                      <span>{(tournament as any).mode === 'league' ? 'Round-robin • Semua vs Semua' : 'Sistem Gugur • Bagan Eliminasi'}</span>
                     </div>
                   </div>
                 </div>
@@ -742,7 +806,7 @@ export const Tournaments: React.FC = () => {
                   onClick={() => navigate(`/tournaments/${tournament.id}`)}
                   className="w-full py-2.5 rounded-xl glass-btn text-xs flex items-center justify-center gap-2 group-hover:border-brand-primary group-hover:text-white transition-all font-semibold"
                 >
-                  <span>{isCompleted ? 'Lihat Bagan & Hasil' : 'Main & Perbarui Bagan'}</span>
+                  <span>{isCompleted ? ((tournament as any).mode === 'league' ? 'Lihat Klasemen & Hasil' : 'Lihat Bagan & Hasil') : ((tournament as any).mode === 'league' ? 'Main & Lihat Klasemen' : 'Main & Perbarui Bagan')}</span>
                   <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </button>
               </div>

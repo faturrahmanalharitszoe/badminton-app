@@ -10,7 +10,8 @@ import {
   useAddPlayer,
   useSetTournamentStatus
 } from '../hooks/useQueries';
-import { Trophy, ArrowLeft, Edit3, Calendar, Award, Info, AlertTriangle, Users, Trash2, UserPlus, X, Lock, Unlock } from 'lucide-react';
+import { Trophy, ArrowLeft, Edit3, Calendar, Award, Info, AlertTriangle, Users, Trash2, UserPlus, X, Lock, Unlock, Table2, Swords, BarChart3, GitBranch } from 'lucide-react';
+import { computeLeagueStandings } from '../hooks/useQueries';
 import confetti from 'canvas-confetti';
 import { useQueryClient } from '@tanstack/react-query';
 import { db } from '../lib/supabase';
@@ -81,6 +82,19 @@ export const TournamentDetail: React.FC = () => {
       (m.team2_ids || []).forEach((id) => id !== 'ghost' && s.add(id));
     });
     return s;
+  }, [matches]);
+
+  const isLeague = (tournament as any)?.mode === 'league';
+
+  const leagueStandings = useMemo(() => {
+    if (!isLeague) return [];
+    return computeLeagueStandings(matches);
+  }, [matches, isLeague]);
+
+  const leagueProgress = useMemo(() => {
+    const total = matches.length;
+    const done = matches.filter((m) => m.winner !== null).length;
+    return { total, done, pct: total ? Math.round((done / total) * 100) : 0 };
   }, [matches]);
 
   const handleOpenFillModal = (match: Match) => {
@@ -454,11 +468,16 @@ export const TournamentDetail: React.FC = () => {
               {tournament.name}
               {tournament.status === 'completed' && <Trophy className="w-5 h-5 text-amber-400 fill-amber-400/20" />}
             </h2>
-            <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5 font-medium">
+            <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5 font-medium flex-wrap">
               <Calendar className="w-3.5 h-3.5 text-slate-500" />
               <span>{new Date(tournament.date).toLocaleDateString('id-ID', { dateStyle: 'long' })}</span>
               <span>•</span>
               <span>Format {tournament.format === 'double' ? 'Ganda Putra (MD)' : 'Tunggal'}</span>
+              <span>•</span>
+              <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${isLeague ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-brand-primary/10 border-brand-primary/20 text-brand-primary'}`}>
+                {isLeague ? <Table2 className="w-3 h-3" /> : <GitBranch className="w-3 h-3" />}
+                {isLeague ? 'Liga • Round Robin' : 'Knockout • Sistem Gugur'}
+              </span>
             </p>
           </div>
         </div>
@@ -527,7 +546,7 @@ export const TournamentDetail: React.FC = () => {
       )}
 
       {/* Guide Banner */}
-      {tournament.status === 'active' && (
+      {tournament.status === 'active' && !isLeague && (
         <div className="p-3 bg-dark-900/60 border border-dark-800 rounded-xl flex items-start gap-2.5 text-xs text-slate-400">
           <Info className="w-4.5 h-4.5 text-brand-primary mt-0.5 flex-shrink-0" />
           <span>
@@ -535,9 +554,125 @@ export const TournamentDetail: React.FC = () => {
           </span>
         </div>
       )}
+      {tournament.status === 'active' && isLeague && (
+        <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl flex items-start gap-2.5 text-xs text-slate-300">
+          <Table2 className="w-4.5 h-4.5 text-emerald-400 mt-0.5 flex-shrink-0" />
+          <span>
+            <strong>Mode Liga:</strong> Klik kartu pertandingan untuk memasukkan skor. Klasemen di bawah akan ter-update otomatis (Menang = 3 poin). Semua tim bertemu satu kali — peringkat 1 jadi juara saat semua laga selesai.
+            {leagueProgress.total > 0 && <span className="ml-1 text-emerald-300 font-bold">{leagueProgress.done}/{leagueProgress.total} laga selesai ({leagueProgress.pct}%)</span>}
+          </span>
+        </div>
+      )}
 
-      {/* Bracket Canvas Area */}
-      <div className="w-full overflow-x-auto py-8 px-4 glass-panel rounded-2xl border border-dark-800/80">
+      {/* ── LEAGUE VIEW ── */}
+      {isLeague ? (
+        <div className="space-y-6">
+          {/* League standings */}
+          <div className="glass-panel rounded-2xl border border-dark-800/80 overflow-hidden">
+            <div className="p-5 border-b border-dark-800 flex items-center justify-between">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-emerald-400" />
+                Klasemen Liga
+              </h3>
+              <span className="text-[11px] text-slate-400 font-medium">{leagueStandings.length} tim • {leagueProgress.done}/{leagueProgress.total} laga</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-dark-900/60 border-b border-dark-800 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    <th className="py-3 px-4 text-center w-12">#</th>
+                    <th className="py-3 px-4">Tim</th>
+                    <th className="py-3 px-3 text-center">Main</th>
+                    <th className="py-3 px-3 text-center">M</th>
+                    <th className="py-3 px-3 text-center">K</th>
+                    <th className="py-3 px-3 text-center">Poin</th>
+                    <th className="py-3 px-3 text-center">Selisih</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-dark-800/50">
+                  {leagueStandings.length === 0 ? (
+                    <tr><td colSpan={7} className="py-8 text-center text-xs text-slate-500">Belum ada data klasemen</td></tr>
+                  ) : leagueStandings.map((s, idx) => {
+                    const isLeader = idx === 0 && s.played > 0;
+                    const isCompletedLeague = leagueProgress.pct === 100;
+                    return (
+                      <tr key={s.teamKey} className={`${isLeader ? 'bg-emerald-500/5' : ''} hover:bg-dark-900/20 transition-colors`}>
+                        <td className="py-3 px-4 text-center">
+                          <span className={`w-6 h-6 rounded-full inline-flex items-center justify-center text-[11px] font-black ${idx === 0 ? 'bg-amber-400/15 text-amber-400 border border-amber-400/20' : idx === 1 ? 'bg-slate-400/10 text-slate-300 border border-slate-400/20' : idx === 2 ? 'bg-amber-700/10 text-amber-700 border border-amber-700/20' : 'text-slate-500'}`}>{idx + 1}</span>
+                        </td>
+                        <td className="py-3 px-4 font-semibold text-white text-xs">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <TeamDisplay teamIds={s.teamIds} />
+                            {isLeader && isCompletedLeague && <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-full font-bold">JUARA</span>}
+                            {isLeader && !isCompletedLeague && <span className="text-[9px] bg-brand-primary/20 text-brand-primary border border-brand-primary/30 px-1.5 py-0.5 rounded-full font-bold">PEMIIMPIN</span>}
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 text-center text-xs font-bold text-slate-300">{s.played}</td>
+                        <td className="py-3 px-3 text-center text-xs font-bold text-emerald-400">{s.wins}</td>
+                        <td className="py-3 px-3 text-center text-xs font-bold text-rose-400">{s.losses}</td>
+                        <td className="py-3 px-3 text-center"><span className={`px-2 py-1 rounded-lg text-xs font-black ${isLeader ? 'bg-emerald-500 text-white' : 'bg-dark-800 text-slate-300'}`}>{s.points}</span></td>
+                        <td className={`py-3 px-3 text-center text-xs font-bold ${s.pointDiff > 0 ? 'text-indigo-400' : s.pointDiff < 0 ? 'text-rose-400' : 'text-slate-500'}`}>{s.pointDiff > 0 ? `+${s.pointDiff}` : s.pointDiff}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* League matches grid */}
+          <div>
+            <h3 className="font-bold text-sm flex items-center gap-2 mb-3">
+              <Swords className="w-4 h-4 text-brand-primary" />
+              Jadwal Pertandingan ({matches.length})
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {matches
+                .slice()
+                .sort((a, b) => a.match_index - b.match_index)
+                .map((match, idx) => {
+                  const isActive = tournament.status === 'active';
+                  const isClickable = isActive;
+                  const hasScore = match.winner !== null;
+                  return (
+                    <div
+                      key={match.id}
+                      onClick={() => isClickable && handleOpenScoreModal(match)}
+                      className={`glass-card rounded-xl p-4 flex flex-col gap-3 transition-all ${isClickable ? 'cursor-pointer hover:border-brand-primary/40 hover:shadow-lg' : ''} ${hasScore ? 'border-emerald-500/20 bg-emerald-500/[0.03]' : ''}`}
+                    >
+                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                        <span>Match {idx + 1}</span>
+                        <span className={`px-2 py-0.5 rounded-full border text-[9px] ${hasScore ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>{hasScore ? 'Selesai' : 'Belum main'}</span>
+                      </div>
+                      <div className={`flex items-center justify-between p-2.5 rounded-xl border ${match.winner === 1 ? 'bg-emerald-500/10 border-emerald-500/20' : match.winner === 2 ? 'bg-dark-800/50 border-dark-800' : 'bg-dark-900/40 border-dark-800'}`}>
+                        <div className={`text-xs font-medium ${match.winner === 1 ? 'text-emerald-300' : match.winner === 2 ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
+                          <TeamDisplay teamIds={match.team1_ids} isWinner={match.winner === 1} isLoser={match.winner === 2} />
+                        </div>
+                        <span className="font-black text-sm min-w-[28px] text-right">{match.set_scores ? match.set_scores.filter((s: any) => s.team1 > s.team2).length : (match.score1 ?? '-')}</span>
+                      </div>
+                      <div className="text-center text-[10px] text-slate-600 font-bold">VS</div>
+                      <div className={`flex items-center justify-between p-2.5 rounded-xl border ${match.winner === 2 ? 'bg-emerald-500/10 border-emerald-500/20' : match.winner === 1 ? 'bg-dark-800/50 border-dark-800' : 'bg-dark-900/40 border-dark-800'}`}>
+                        <div className={`text-xs font-medium ${match.winner === 2 ? 'text-emerald-300' : match.winner === 1 ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
+                          <TeamDisplay teamIds={match.team2_ids} isWinner={match.winner === 2} isLoser={match.winner === 1} />
+                        </div>
+                        <span className="font-black text-sm min-w-[28px] text-right">{match.set_scores ? match.set_scores.filter((s: any) => s.team2 > s.team1).length : (match.score2 ?? '-')}</span>
+                      </div>
+                      {match.set_scores && match.set_scores.length > 0 && (
+                        <div className="flex flex-wrap gap-1 justify-center">
+                          {match.set_scores.map((s: any, i: number) => (
+                            <span key={i} className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${(match.winner === 1 && s.team1 > s.team2) || (match.winner === 2 && s.team2 > s.team1) ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'}`}>{s.team1}-{s.team2}</span>
+                          ))}
+                        </div>
+                      )}
+                      {isClickable && <div className="flex items-center justify-center gap-1 text-[10px] text-brand-primary font-semibold pt-1"><Edit3 className="w-3 h-3" /> Klik untuk isi/edit skor</div>}
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="w-full overflow-x-auto py-8 px-4 glass-panel rounded-2xl border border-dark-800/80">
         <div
           className="relative mx-auto select-none"
           style={{ width: `${totalWidth}px`, height: `${totalHeight}px` }}
@@ -680,6 +815,7 @@ export const TournamentDetail: React.FC = () => {
           })}
         </div>
       </div>
+      )}
 
       {/* Score Modal */}
       {selectedMatch && (
@@ -843,6 +979,8 @@ export const TournamentDetail: React.FC = () => {
                   {fillMatch ? (
                     <>Babak {fillMatch.round} • Pertandingan {fillMatch.match_index + 1}
                       {fillSlot === 'team1' ? ' • Slot Tim 1' : ' • Slot Tim 2'}</>
+                  ) : isLeague ? (
+                    'Mode Liga • Tim baru akan bertemu semua tim yang sudah ada'
                   ) : (
                     'Posisi otomatis • Bagan diperluas bila penuh'
                   )}
@@ -960,7 +1098,7 @@ export const TournamentDetail: React.FC = () => {
                 className="px-5 py-2.5 rounded-xl gradient-btn text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
               >
                 <Users className="w-4 h-4" />
-                {addTeamMutation.isPending ? 'Menambahkan...' : 'Tambahkan ke Bagan'}
+                {addTeamMutation.isPending ? 'Menambahkan...' : isLeague ? 'Tambahkan ke Liga' : 'Tambahkan ke Bagan'}
               </button>
             </div>
           </div>

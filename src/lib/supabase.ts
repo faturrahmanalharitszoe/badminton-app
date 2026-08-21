@@ -6,11 +6,14 @@ export interface Player {
   created_at: string;
 }
 
+export type TournamentMode = 'knockout' | 'league';
+
 export interface Tournament {
   id: string;
   name: string;
   date: string;
   format: 'single' | 'double';
+  mode: TournamentMode;
   status: 'active' | 'completed';
   winner_team_ids: string[] | null;
   created_at: string;
@@ -156,19 +159,25 @@ const localDb = {
   // Tournaments CRUD
   getTournaments: async (): Promise<Tournament[]> => {
     initializeLocalStorage();
-    return JSON.parse(localStorage.getItem('mabar_tournaments') || '[]');
+    const list: Tournament[] = JSON.parse(localStorage.getItem('mabar_tournaments') || '[]');
+    // migrate old data without mode
+    let migrated = false;
+    list.forEach((t: any) => { if (!t.mode) { t.mode = 'knockout'; migrated = true; } });
+    if (migrated) localStorage.setItem('mabar_tournaments', JSON.stringify(list));
+    return list;
   },
   getTournamentById: async (id: string): Promise<Tournament | null> => {
     const list = await localDb.getTournaments();
     return list.find((t) => t.id === id) || null;
   },
-  createTournament: async (name: string, date: string, format: 'single' | 'double'): Promise<Tournament> => {
+  createTournament: async (name: string, date: string, format: 'single' | 'double', mode: TournamentMode = 'knockout'): Promise<Tournament> => {
     const tournaments = await localDb.getTournaments();
     const newTournament: Tournament = {
       id: crypto.randomUUID(),
       name,
       date,
       format,
+      mode,
       status: 'active',
       winner_team_ids: null,
       created_at: new Date().toISOString(),
@@ -524,7 +533,11 @@ export const db = {
     if (supabase) {
       const { data, error } = await supabase.from('tournaments').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      const bridge = JSON.parse(localStorage.getItem('mabar_tournament_mode_bridge') || '{}');
+      return (data || []).map((t: any) => ({
+        ...t,
+        mode: t.mode || bridge[t.id] || 'knockout',
+      }));
     }
     return localDb.getTournaments();
   },
@@ -532,21 +545,41 @@ export const db = {
     if (supabase) {
       const { data, error } = await supabase.from('tournaments').select('*').eq('id', id).single();
       if (error) return null;
-      return data;
+      const bridge = JSON.parse(localStorage.getItem('mabar_tournament_mode_bridge') || '{}');
+      return { ...data, mode: (data as any).mode || bridge[data.id] || 'knockout' };
     }
     return localDb.getTournamentById(id);
   },
-  createTournament: async (name: string, date: string, format: 'single' | 'double'): Promise<Tournament> => {
+  createTournament: async (name: string, date: string, format: 'single' | 'double', mode: TournamentMode = 'knockout'): Promise<Tournament> => {
     if (supabase) {
+      const payload: any = { name, date, format, status: 'active', mode };
       const { data, error } = await supabase
         .from('tournaments')
-        .insert([{ name, date, format, status: 'active' }])
+        .insert([payload])
         .select()
         .single();
-      if (error) throw error;
+      if (error) {
+        // fallback if mode column missing (older schema)
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('mode') || msg.includes('column') || msg.includes('schema cache')) {
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('tournaments')
+            .insert([{ name, date, format, status: 'active' }])
+            .select()
+            .single();
+          if (fallbackError) throw fallbackError;
+          // store mode in localStorage bridge
+          const bridge = JSON.parse(localStorage.getItem('mabar_tournament_mode_bridge') || '{}');
+          bridge[fallbackData.id] = mode;
+          localStorage.setItem('mabar_tournament_mode_bridge', JSON.stringify(bridge));
+          fallbackData.mode = mode;
+          return fallbackData;
+        }
+        throw error;
+      }
       return data;
     }
-    return localDb.createTournament(name, date, format);
+    return localDb.createTournament(name, date, format, mode);
   },
   updateTournamentWinner: async (id: string, winnerTeamIds: string[] | null): Promise<Tournament> => {
     if (supabase) {
@@ -748,8 +781,51 @@ export const db = {
     matchId: string | null,
     newTeamIds: string[]
   ): Promise<{ expanded: boolean }> => {
+    const tournament = await db.getTournamentById(tournamentId);
+    const mode = (tournament as any)?.mode || 'knockout';
     const matches = await db.getMatches(tournamentId);
 
+    // ── League mode: every new team plays everyone else ──
+    if (mode === 'league') {
+      // Collect existing distinct teams
+      const teamKeys = new Set<string>();
+      const teamMap = new Map<string, string[]>();
+      matches.forEach((m) => {
+        if (m.team1_ids?.length) {
+          const k = [...m.team1_ids].sort().join('_');
+          if (!teamKeys.has(k)) { teamKeys.add(k); teamMap.set(k, m.team1_ids); }
+        }
+        if (m.team2_ids?.length) {
+          const k = [...m.team2_ids].sort().join('_');
+          if (!teamKeys.has(k)) { teamKeys.add(k); teamMap.set(k, m.team2_ids); }
+        }
+      });
+      const newKey = [...newTeamIds].sort().join('_');
+      if (teamKeys.has(newKey)) throw new Error('Tim sudah ada di liga');
+
+      const existingTeams = Array.from(teamMap.values());
+      if (existingTeams.length === 0) throw new Error('Tidak ada tim di liga');
+
+      const nextIdx = matches.length > 0 ? Math.max(...matches.map((m) => m.match_index)) + 1 : 0;
+      const toCreate: any[] = existingTeams.map((opponent, i) => ({
+        id: crypto.randomUUID(),
+        tournament_id: tournamentId,
+        round: 1,
+        match_index: nextIdx + i,
+        team1_ids: [...opponent],
+        team2_ids: [...newTeamIds],
+        score1: null,
+        score2: null,
+        winner: null,
+        next_match_id: null,
+        next_match_is_team2: false,
+        created_at: new Date().toISOString(),
+      }));
+      if (toCreate.length) await db.createMatches(toCreate);
+      return { expanded: false };
+    }
+
+    // ── Knockout mode: existing logic ──
     // Explicit target (clicked a specific slot).
     if (matchId) {
       const target = matches.find((m) => m.id === matchId);

@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS tournaments (
     name TEXT NOT NULL,
     date DATE NOT NULL DEFAULT CURRENT_DATE,
     format TEXT NOT NULL DEFAULT 'double' CHECK (format IN ('single', 'double')),
+    mode TEXT NOT NULL DEFAULT 'knockout' CHECK (mode IN ('knockout', 'league')),
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed')),
     winner_team_ids UUID[] DEFAULT NULL, -- Will contain player UUIDs of the winning team
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -56,3 +57,5 @@ alter publication supabase_realtime add table matches;
 
 -- Migration: Add set_scores column to matches (run if table already exists)
 -- ALTER TABLE matches ADD COLUMN IF NOT EXISTS set_scores JSONB DEFAULT NULL;
+-- Migration: Add mode column to tournaments for league support
+-- ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS mode TEXT NOT NULL DEFAULT 'knockout' CHECK (mode IN ('knockout', 'league'));

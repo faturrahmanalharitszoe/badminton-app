@@ -101,20 +101,47 @@ export const useAddTournament = () => {
       name,
       date,
       format,
+      mode = 'knockout',
       teams, // Array of team arrays, e.g. [[player1, player2], [player3, player4]]
     }: {
       name: string;
       date: string;
       format: 'single' | 'double';
+      mode?: 'knockout' | 'league';
       teams: string[][]; // Array of player IDs
     }) => {
       // 1. Create the tournament
-      const tournament = await db.createTournament(name, date, format);
+      const tournament = await db.createTournament(name, date, format, mode as any);
       const tId = tournament.id;
 
       const numTeams = teams.length;
       if (numTeams < 2) {
         throw new Error('Need at least 2 teams to create a tournament');
+      }
+
+      // ── LEAGUE MODE: round-robin every team vs every team ──
+      if (mode === 'league') {
+        const leagueMatches: any[] = [];
+        let idx = 0;
+        for (let i = 0; i < teams.length; i++) {
+          for (let j = i + 1; j < teams.length; j++) {
+            leagueMatches.push({
+              id: crypto.randomUUID(),
+              tournament_id: tId,
+              round: 1,
+              match_index: idx++,
+              team1_ids: teams[i],
+              team2_ids: teams[j],
+              score1: null,
+              score2: null,
+              winner: null,
+              next_match_id: null,
+              next_match_is_team2: false,
+            });
+          }
+        }
+        await db.createMatches(leagueMatches);
+        return tournament;
       }
 
       // Calculate rounds: ceil(log2(numTeams))
@@ -337,6 +364,36 @@ export const useUpdateMatchScore = () => {
       // 1. Update the match score
       const updatedMatch = await db.updateMatchScore(match.id, score1, score2, winner, set_scores);
 
+      const tournament = await db.getTournamentById(tournamentId);
+      const mode = (tournament as any)?.mode || 'knockout';
+
+      // ── League: no propagation. Auto-crown if all matches done ──
+      if (mode === 'league') {
+        const all = await db.getMatches(tournamentId);
+        const allDone = all.length > 0 && all.every((m) => m.winner !== null);
+        if (allDone) {
+          // compute top team by points (reuse logic simplified)
+          const stats = new Map<string, { wins: number; pointsDiff: number; team: string[] }>();
+          for (const m of all) {
+            const t1k = [...m.team1_ids].sort().join('_');
+            const t2k = [...m.team2_ids].sort().join('_');
+            if (!stats.has(t1k)) stats.set(t1k, { wins: 0, pointsDiff: 0, team: m.team1_ids });
+            if (!stats.has(t2k)) stats.set(t2k, { wins: 0, pointsDiff: 0, team: m.team2_ids });
+            let t1pts = m.score1 ?? 0, t2pts = m.score2 ?? 0;
+            if (m.set_scores?.length) {
+              t1pts = m.set_scores.reduce((s: number, x: any) => s + (x.team1 || 0), 0);
+              t2pts = m.set_scores.reduce((s: number, x: any) => s + (x.team2 || 0), 0);
+            }
+            const s1 = stats.get(t1k)!; const s2 = stats.get(t2k)!;
+            s1.pointsDiff += t1pts - t2pts; s2.pointsDiff += t2pts - t1pts;
+            if (m.winner === 1) s1.wins++; else if (m.winner === 2) s2.wins++;
+          }
+          const sorted = Array.from(stats.values()).sort((a, b) => b.wins - a.wins || b.pointsDiff - a.pointsDiff);
+          if (sorted.length) await db.updateTournamentWinner(tournamentId, sorted[0].team);
+        }
+        return updatedMatch;
+      }
+
       const winnerTeamIds = winner === 1 ? match.team1_ids : match.team2_ids;
 
       // Fetch all matches for the tournament to coordinate propagation
@@ -372,6 +429,48 @@ export const useUpdateMatchScore = () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tournaments });
     },
   });
+};
+
+// -------------------------------------------------------------
+// LEAGUE STANDINGS HELPER
+// -------------------------------------------------------------
+export interface LeagueStanding {
+  teamKey: string;
+  teamIds: string[];
+  played: number;
+  wins: number;
+  losses: number;
+  points: number; // 3 per win
+  pointsWon: number;
+  pointsLost: number;
+  pointDiff: number;
+}
+
+export const computeLeagueStandings = (matches: Match[]): LeagueStanding[] => {
+  const map = new Map<string, LeagueStanding>();
+  for (const m of matches) {
+    const t1k = [...(m.team1_ids || [])].sort().join('_');
+    const t2k = [...(m.team2_ids || [])].sort().join('_');
+    if (t1k && !map.has(t1k)) map.set(t1k, { teamKey: t1k, teamIds: m.team1_ids, played: 0, wins: 0, losses: 0, points: 0, pointsWon: 0, pointsLost: 0, pointDiff: 0 });
+    if (t2k && !map.has(t2k)) map.set(t2k, { teamKey: t2k, teamIds: m.team2_ids, played: 0, wins: 0, losses: 0, points: 0, pointsWon: 0, pointsLost: 0, pointDiff: 0 });
+    if (m.winner === null) continue;
+    let t1pts = m.score1 ?? 0; let t2pts = m.score2 ?? 0;
+    if (m.set_scores?.length) {
+      t1pts = m.set_scores.reduce((s: number, x: any) => s + (x.team1 || 0), 0);
+      t2pts = m.set_scores.reduce((s: number, x: any) => s + (x.team2 || 0), 0);
+    }
+    const s1 = map.get(t1k)!; const s2 = map.get(t2k)!;
+    s1.played++; s2.played++;
+    s1.pointsWon += t1pts; s1.pointsLost += t2pts;
+    s2.pointsWon += t2pts; s2.pointsLost += t1pts;
+    s1.pointDiff = s1.pointsWon - s1.pointsLost;
+    s2.pointDiff = s2.pointsWon - s2.pointsLost;
+    if (m.winner === 1) { s1.wins++; s1.points += 3; s2.losses++; }
+    else { s2.wins++; s2.points += 3; s1.losses++; }
+  }
+  const list = Array.from(map.values());
+  list.sort((a, b) => b.points - a.points || b.wins - a.wins || b.pointDiff - a.pointDiff);
+  return list;
 };
 
 // -------------------------------------------------------------
