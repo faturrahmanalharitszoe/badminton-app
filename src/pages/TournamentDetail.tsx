@@ -152,18 +152,9 @@ export const TournamentDetail: React.FC = () => {
 
   const handleSubmitFill = async () => {
     const needed = tournament?.format === 'double' ? 2 : 1;
-    let teamIds = [...fillSelectedIds];
-    if (tournament?.format === 'double' && teamIds.length === 1) {
-      const available = players.filter((p) => !tournamentPlayerIds.has(p.id) && !teamIds.includes(p.id));
-      if (available.length === 0) {
-        setFillError('Tidak ada pemain lain tersedia untuk dijadikan partner. Pilih 2 pemain secara manual.');
-        return;
-      }
-      const partner = available[Math.floor(Math.random() * available.length)];
-      teamIds.push(partner.id);
-    }
+    const teamIds = [...fillSelectedIds];
     if (teamIds.length !== needed) {
-      setFillError(tournament?.format === 'double' ? 'Pilih 2 pemain untuk membentuk tim ganda.' : 'Pilih 1 pemain untuk tim tunggal.');
+      setFillError(tournament?.format === 'double' ? 'Pilih 2 pemain untuk membentuk tim ganda (wajib pilih 2, tidak diacak otomatis).' : 'Pilih 1 pemain untuk tim tunggal.');
       return;
     }
     try {
@@ -1007,7 +998,7 @@ export const TournamentDetail: React.FC = () => {
             {/* Doubles partner note */}
             {tournament?.format === 'double' && (
               <div className="p-3 bg-brand-primary/5 border border-brand-primary/20 rounded-xl text-xs text-slate-300">
-                Pilih 1 pemain, partner akan diacak otomatis dari pemain yang belum ikut. Atau pilih 2 pemain untuk tim lengkap.
+                {isLeague ? 'Mode Liga: wajib pilih 2 pemain untuk tim ganda (tidak ada partner acak).' : 'Pilih 2 pemain untuk tim ganda (wajib 2, tidak diacak otomatis).'}
               </div>
             )}
 
@@ -1038,7 +1029,7 @@ export const TournamentDetail: React.FC = () => {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                  Pilih {tournament?.format === 'double' ? '1–2 pemain' : '1 pemain'}
+                  Pilih {tournament?.format === 'double' ? '2 pemain' : '1 pemain'}
                 </span>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${fillSelectedIds.length === (tournament?.format === 'double' ? 2 : 1)
                   ? 'bg-brand-primary/10 border-brand-primary/30 text-brand-primary'
